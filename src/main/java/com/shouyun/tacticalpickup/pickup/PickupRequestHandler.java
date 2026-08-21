@@ -31,7 +31,14 @@ public final class PickupRequestHandler {
 			return;
 		}
 
+		int previousCount = itemStack.getCount();
 		PickupManager.performManualPickup(player, itemEntity);
+
+		// Inventory.add mutates the ItemStack stored by ItemEntity. When only part of the
+		// stack fits, publish a fresh value so SynchedEntityData sends the new count.
+		if (!itemEntity.isRemoved() && !itemStack.isEmpty() && itemStack.getCount() != previousCount) {
+			itemEntity.setItem(itemStack.copy());
+		}
 	}
 
 	private static boolean hasInventorySpace(Inventory inventory, ItemStack itemStack) {

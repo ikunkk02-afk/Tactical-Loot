@@ -10,17 +10,23 @@ public final class PickupManager {
 	private PickupManager() {
 	}
 
-	public static boolean consumeManualPickupAuthorization(ItemEntity itemEntity, Player player) {
+	public static boolean isManualPickupAuthorized(ItemEntity itemEntity, Player player) {
 		ManualPickupAuthorization authorization = AUTHORIZATION.get();
 
-		if (authorization == null
-				|| authorization.entityId() != itemEntity.getId()
-				|| !authorization.playerId().equals(player.getUUID())) {
-			return false;
+		return authorization != null
+				&& authorization.entityId() == itemEntity.getId()
+				&& authorization.playerId().equals(player.getUUID());
+	}
+
+	public static int getAuthorizedPickupAmount(ItemEntity itemEntity, int vanillaAmount) {
+		ManualPickupAuthorization authorization = AUTHORIZATION.get();
+
+		if (authorization == null || authorization.entityId() != itemEntity.getId()) {
+			return vanillaAmount;
 		}
 
-		AUTHORIZATION.remove();
-		return true;
+		int insertedCount = authorization.originalCount() - itemEntity.getItem().getCount();
+		return insertedCount > 0 ? insertedCount : vanillaAmount;
 	}
 
 	public static void performManualPickup(Player player, ItemEntity itemEntity) {
@@ -28,7 +34,11 @@ public final class PickupManager {
 			throw new IllegalStateException("Nested manual pickup authorization");
 		}
 
-		AUTHORIZATION.set(new ManualPickupAuthorization(player.getUUID(), itemEntity.getId()));
+		AUTHORIZATION.set(new ManualPickupAuthorization(
+				player.getUUID(),
+				itemEntity.getId(),
+				itemEntity.getItem().getCount()
+		));
 
 		try {
 			itemEntity.playerTouch(player);
@@ -37,6 +47,6 @@ public final class PickupManager {
 		}
 	}
 
-	private record ManualPickupAuthorization(UUID playerId, int entityId) {
+	private record ManualPickupAuthorization(UUID playerId, int entityId, int originalCount) {
 	}
 }
