@@ -1,0 +1,8 @@
+{
+	"tactical_pickup.hud.title": "附近物品",
+	"tactical_pickup.hud.enter": "[F] 拾取",
+	"tactical_pickup.hud.scroll": "滚轮：选择",
+	"tactical_pickup.hud.pickup": "F：拾取",
+	"tactical_pickup.hud.exit": "ESC：退出",
+	"tactical_pickup.hud.more": "还有 %s 项……"
+}

@@ -1,0 +1,8 @@
+{
+	"tactical_pickup.hud.title": "Nearby Items",
+	"tactical_pickup.hud.enter": "[F] Pickup",
+	"tactical_pickup.hud.scroll": "Mouse wheel: Select",
+	"tactical_pickup.hud.pickup": "F: Pickup",
+	"tactical_pickup.hud.exit": "ESC: Exit",
+	"tactical_pickup.hud.more": "%s more..."
+}
