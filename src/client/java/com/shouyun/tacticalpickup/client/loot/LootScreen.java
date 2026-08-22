@@ -1,5 +1,6 @@
 package com.shouyun.tacticalpickup.client.loot;
 
+import com.shouyun.tacticalpickup.client.config.ClientUiConfigManager;
 import com.shouyun.tacticalpickup.client.input.ClientKeyMappings;
 import com.shouyun.tacticalpickup.client.loot.LootScreenDragState.InventorySnapshot;
 import com.shouyun.tacticalpickup.client.loot.LootScreenDragState.LootSnapshot;
@@ -12,6 +13,11 @@ import com.shouyun.tacticalpickup.client.ui.PixelTheme;
 import com.shouyun.tacticalpickup.client.ui.animation.AnimatedFloat;
 import com.shouyun.tacticalpickup.client.ui.animation.Easing;
 import com.shouyun.tacticalpickup.client.ui.animation.GuiAnimation;
+import com.shouyun.tacticalpickup.client.ui.layout.UiElement;
+import com.shouyun.tacticalpickup.client.ui.layout.UiPlacement;
+import com.shouyun.tacticalpickup.client.ui.layout.UiRect;
+import com.shouyun.tacticalpickup.client.ui.layout.UiTransform;
+import com.shouyun.tacticalpickup.client.ui.layout.UiTransform.UiPoint;
 import com.shouyun.tacticalpickup.filter.ItemFilterState;
 import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.network.PickupRequestPayload;
@@ -307,6 +313,12 @@ public final class LootScreen extends Screen {
 			? Easing.IN_CUBIC.apply(GuiAnimation.progress(now, closeStartedAtNanos, CLOSE_DURATION_MS))
 			: 0.0F;
 		graphics.fill(0, 0, width, height, PixelTheme.color(PixelTheme.WORLD_DIM, visibility));
+		UiTransform uiTransform = uiTransform();
+		UiPoint localMouse = uiTransform.screenToLocal(mouseX, mouseY);
+		int localMouseX = (int) Math.round(localMouse.x());
+		int localMouseY = (int) Math.round(localMouse.y());
+		graphics.pose().pushPose();
+		uiTransform.apply(graphics);
 		renderOuterPanel(graphics, now, visibility, closeProgress);
 
 		float inventoryProgress = sectionProgress(now, INVENTORY_DELAY_MS);
@@ -327,22 +339,37 @@ public final class LootScreen extends Screen {
 		PixelTheme.drawPanel(graphics, lootPanel.x(), lootPanel.y(), lootPanel.width(), lootPanel.height(), lootOpacity);
 		PixelTheme.drawPanel(graphics, detailPanel.x(), detailPanel.y(), detailPanel.width(), detailPanel.height(), detailOpacity);
 
-		renderInventoryPanel(graphics, mouseX, mouseY, inventoryY, inventoryOpacity, now);
-		renderLootPanel(graphics, mouseX, mouseY, lootY, lootOpacity, now);
+		renderInventoryPanel(graphics, localMouseX, localMouseY, inventoryY, inventoryOpacity, now);
+		renderLootPanel(graphics, localMouseX, localMouseY, lootY, lootOpacity, now);
 		renderDetailPanel(graphics, detailY, detailOpacity, now);
 		updateWidgetPresentation(lootY, detailY, visibility, lootOpacity, detailOpacity);
-		super.render(graphics, mouseX, mouseY, partialTick);
+		super.render(graphics, localMouseX, localMouseY, partialTick);
 
 		renderFlight(graphics, now, visibility);
 		if (dragState.isDragging()) {
-			renderDragGhost(graphics, mouseX, mouseY, now, visibility);
+			renderDragGhost(graphics, localMouseX, localMouseY, now, visibility);
 		} else {
 			dragTrailInitialized = false;
-			if (!hoveredTooltipStack.isEmpty() && !closing) {
-				graphics.renderTooltip(font, hoveredTooltipStack, mouseX, mouseY);
-			}
+		}
+		graphics.pose().popPose();
+		if (!dragState.isDragging() && !hoveredTooltipStack.isEmpty() && !closing) {
+			graphics.renderTooltip(font, hoveredTooltipStack, mouseX, mouseY);
 		}
 		previousRenderNanos = now;
+	}
+
+	private UiTransform uiTransform() {
+		Bounds panel = layout.panel();
+		UiRect bounds = new UiRect(panel.x(), panel.y(), panel.width(), panel.height());
+		UiPlacement placement = ClientUiConfigManager.getInstance().placement(UiElement.LOOT_SCREEN);
+		return UiTransform.create(
+			bounds,
+			placement.desiredCenterX(bounds.centerX(), width),
+			placement.desiredCenterY(bounds.centerY(), height),
+			placement.scale(),
+			width,
+			height
+		);
 	}
 
 	@Override
@@ -1098,8 +1125,11 @@ public final class LootScreen extends Screen {
 			return true;
 		}
 
+		UiPoint localMouse = uiTransform().screenToLocal(mouseX, mouseY);
+		double localMouseX = localMouse.x();
+		double localMouseY = localMouse.y();
 		long now = System.nanoTime();
-		int lootIndex = lootIndexAt(mouseX, mouseY, now);
+		int lootIndex = lootIndexAt(localMouseX, localMouseY, now);
 		if (button == 1 && hasShiftDown() && lootIndex >= 0) {
 			LootGroup group = visibleGroups.get(lootIndex);
 			selectGroup(group, now);
@@ -1108,24 +1138,24 @@ public final class LootScreen extends Screen {
 			return true;
 		}
 
-		if (super.mouseClicked(mouseX, mouseY, button)) {
+		if (super.mouseClicked(localMouseX, localMouseY, button)) {
 			return true;
 		}
 
 		if (button == 0 && lootIndex >= 0) {
 			LootGroup group = visibleGroups.get(lootIndex);
 			selectGroup(group, now);
-			dragState.pressLoot(group, selectionState.requestedAmount(), mouseX, mouseY);
+			dragState.pressLoot(group, selectionState.requestedAmount(), localMouseX, localMouseY);
 			return true;
 		}
 
 		if (button == 0 && minecraft.player != null) {
 			int inventoryY = sectionOffset(sectionProgress(now, INVENTORY_DELAY_MS), 0.0F);
-			OptionalInt inventorySlot = layout.inventorySlotAt(mouseX, mouseY - inventoryY);
+			OptionalInt inventorySlot = layout.inventorySlotAt(localMouseX, localMouseY - inventoryY);
 			if (inventorySlot.isPresent()) {
 				ItemStack stack = minecraft.player.getInventory().getItem(inventorySlot.getAsInt());
 				if (!stack.isEmpty()) {
-					dragState.pressInventory(inventorySlot.getAsInt(), stack, mouseX, mouseY);
+					dragState.pressInventory(inventorySlot.getAsInt(), stack, localMouseX, localMouseY);
 					return true;
 				}
 			}
@@ -1159,11 +1189,19 @@ public final class LootScreen extends Screen {
 		if (closing) {
 			return true;
 		}
+		UiTransform uiTransform = uiTransform();
+		UiPoint localMouse = uiTransform.screenToLocal(mouseX, mouseY);
 		if (button == 0 && dragState.isActive()) {
-			dragState.update(mouseX, mouseY);
+			dragState.update(localMouse.x(), localMouse.y());
 			return true;
 		}
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+		return super.mouseDragged(
+			localMouse.x(),
+			localMouse.y(),
+			button,
+			dragX / uiTransform.scale(),
+			dragY / uiTransform.scale()
+		);
 	}
 
 	@Override
@@ -1171,12 +1209,15 @@ public final class LootScreen extends Screen {
 		if (closing) {
 			return true;
 		}
+		UiPoint localMouse = uiTransform().screenToLocal(mouseX, mouseY);
+		double localMouseX = localMouse.x();
+		double localMouseY = localMouse.y();
 		if (button == 0 && dragState.isActive()) {
 			long now = System.nanoTime();
 			Snapshot snapshot = dragState.finish();
 			if (snapshot instanceof LootSnapshot lootSnapshot && minecraft.player != null) {
 				int inventoryY = sectionOffset(sectionProgress(now, INVENTORY_DELAY_MS), 0.0F);
-				OptionalInt targetSlot = layout.inventorySlotAt(mouseX, mouseY - inventoryY);
+				OptionalInt targetSlot = layout.inventorySlotAt(localMouseX, localMouseY - inventoryY);
 				if (targetSlot.isPresent()
 						&& canAcceptLoot(minecraft.player.getInventory().getItem(targetSlot.getAsInt()), lootSnapshot.displayStack())
 						&& pickupManager.requestPickupToSlot(
@@ -1187,8 +1228,8 @@ public final class LootScreen extends Screen {
 					Bounds target = layout.inventorySlotBounds(targetSlot.getAsInt()).offset(0, inventoryY);
 					startFlight(
 						lootSnapshot.displayStack(),
-						(float) mouseX - 8.0F,
-						(float) mouseY - 8.0F,
+						(float) localMouseX - 8.0F,
+						(float) localMouseY - 8.0F,
 						target.x() + 1.0F,
 						target.y() + 1.0F,
 						targetSlot.getAsInt(),
@@ -1202,12 +1243,12 @@ public final class LootScreen extends Screen {
 			} else if (snapshot instanceof InventorySnapshot inventorySnapshot) {
 				int lootY = sectionOffset(sectionProgress(now, LOOT_DELAY_MS), 0.0F);
 				Bounds lootPanel = layout.lootPanel().offset(0, lootY);
-				if (lootPanel.contains(mouseX, mouseY)
+				if (lootPanel.contains(localMouseX, localMouseY)
 						&& pickupManager.requestDropInventorySlot(inventorySnapshot.sourceSlot())) {
 					startFlight(
 						inventorySnapshot.displayStack(),
-						(float) mouseX - 8.0F,
-						(float) mouseY - 8.0F,
+						(float) localMouseX - 8.0F,
+						(float) localMouseY - 8.0F,
 						lootPanel.x() + 11.0F,
 						lootPanel.y() + 29.0F,
 						-1,
@@ -1220,7 +1261,7 @@ public final class LootScreen extends Screen {
 			dragTrailInitialized = false;
 			return true;
 		}
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(localMouseX, localMouseY, button);
 	}
 
 	@Override
@@ -1228,16 +1269,17 @@ public final class LootScreen extends Screen {
 		if (closing) {
 			return true;
 		}
+		UiPoint localMouse = uiTransform().screenToLocal(mouseX, mouseY);
 		long now = System.nanoTime();
 		int lootY = sectionOffset(sectionProgress(now, LOOT_DELAY_MS), 0.0F);
-		if (layout.lootPanel().offset(0, lootY).contains(mouseX, mouseY)) {
+		if (layout.lootPanel().offset(0, lootY).contains(localMouse.x(), localMouse.y())) {
 			scrollOffset = layout.clampScroll(
 				scrollOffset - vertical * LootScreenLayout.LOOT_CELL_SIZE,
 				visibleGroups.size()
 			);
 			return true;
 		}
-		return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+		return super.mouseScrolled(localMouse.x(), localMouse.y(), horizontal, vertical);
 	}
 
 	@Override

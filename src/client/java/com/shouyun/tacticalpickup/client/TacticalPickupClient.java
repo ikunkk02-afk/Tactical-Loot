@@ -1,10 +1,12 @@
 package com.shouyun.tacticalpickup.client;
 
 import com.shouyun.tacticalpickup.client.hud.PickupHudRenderer;
+import com.shouyun.tacticalpickup.client.config.ClientUiConfigManager;
 import com.shouyun.tacticalpickup.client.input.ClientKeyMappings;
 import com.shouyun.tacticalpickup.client.loot.LootScreen;
 import com.shouyun.tacticalpickup.client.network.ClientPickupNetworking;
 import com.shouyun.tacticalpickup.client.pickup.ClientPickupManager;
+import com.shouyun.tacticalpickup.client.ui.editor.TacticalLootSettingsScreen;
 import com.shouyun.tacticalpickup.client.filter.FilterManagementScreen;
 import com.shouyun.tacticalpickup.filter.ItemFilterManager;
 import net.fabricmc.api.ClientModInitializer;
@@ -19,6 +21,9 @@ public class TacticalPickupClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ClientPickupManager pickupManager = ClientPickupManager.getInstance();
+		ClientUiConfigManager.initialize(
+			FabricLoader.getInstance().getConfigDir().resolve(ClientUiConfigManager.CONFIG_FILE_NAME)
+		);
 		pickupManager.initialize(new ItemFilterManager(
 			FabricLoader.getInstance().getConfigDir().resolve(ItemFilterManager.CONFIG_FILE_NAME)
 		));
@@ -40,6 +45,17 @@ public class TacticalPickupClient implements ClientModInitializer {
 	}
 
 	private static void handleKeys(Minecraft client, ClientPickupManager pickupManager) {
+		while (ClientKeyMappings.EDIT_UI.consumeClick()) {
+			if (client.player != null
+					&& client.level != null
+					&& client.player.isAlive()
+					&& client.screen == null
+					&& client.getOverlay() == null) {
+				pickupManager.exitPickupMode();
+				client.setScreen(new TacticalLootSettingsScreen(null));
+			}
+		}
+
 		while (ClientKeyMappings.CYCLE_FILTER.consumeClick()) {
 			pickupManager.cycleSelectedFilter(client);
 		}

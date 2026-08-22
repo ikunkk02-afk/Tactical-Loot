@@ -25,6 +25,12 @@ public final class ClientKeyMappings {
 		GLFW.GLFW_KEY_H,
 		CATEGORY
 	);
+	public static final KeyMapping EDIT_UI = new KeyMapping(
+		"key.tactical_pickup.edit_ui",
+		InputConstants.Type.KEYSYM,
+		GLFW.GLFW_KEY_U,
+		CATEGORY
+	);
 
 	private ClientKeyMappings() {
 	}
@@ -33,5 +39,6 @@ public final class ClientKeyMappings {
 		KeyBindingHelper.registerKeyBinding(CYCLE_FILTER);
 		KeyBindingHelper.registerKeyBinding(OPEN_FILTERS);
 		KeyBindingHelper.registerKeyBinding(OPEN_LOOT_SCREEN);
+		KeyBindingHelper.registerKeyBinding(EDIT_UI);
 	}
 }
