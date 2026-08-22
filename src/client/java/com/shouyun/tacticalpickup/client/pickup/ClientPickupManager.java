@@ -4,6 +4,8 @@ import com.shouyun.tacticalpickup.filter.ItemFilterManager;
 import com.shouyun.tacticalpickup.filter.ItemFilterState;
 import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.network.PickupRequestPayload;
+import com.shouyun.tacticalpickup.network.PickupToSlotRequestPayload;
+import com.shouyun.tacticalpickup.network.DropInventorySlotPayload;
 import com.shouyun.tacticalpickup.pickup.LootGroup;
 import com.shouyun.tacticalpickup.pickup.LootGroupAggregator;
 import com.shouyun.tacticalpickup.pickup.LootGroupKey;
@@ -20,6 +22,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.entity.EntityTypeTest;
 
@@ -191,6 +194,35 @@ public final class ClientPickupManager {
 		}
 
 		ClientPlayNetworking.send(new PickupRequestPayload(representativeEntityId, requestedAmount));
+		requestScan();
+		return true;
+	}
+
+	public boolean requestPickupToSlot(int representativeEntityId, int requestedAmount, int targetSlot) {
+		if (requestedAmount < PickupRequestPayload.ALL_ITEMS
+				|| targetSlot < 0
+				|| targetSlot >= Inventory.INVENTORY_SIZE
+				|| !ClientPlayNetworking.canSend(PickupToSlotRequestPayload.TYPE)) {
+			return false;
+		}
+
+		ClientPlayNetworking.send(new PickupToSlotRequestPayload(
+			representativeEntityId,
+			requestedAmount,
+			targetSlot
+		));
+		requestScan();
+		return true;
+	}
+
+	public boolean requestDropInventorySlot(int sourceSlot) {
+		if (sourceSlot < 0
+				|| sourceSlot >= Inventory.INVENTORY_SIZE
+				|| !ClientPlayNetworking.canSend(DropInventorySlotPayload.TYPE)) {
+			return false;
+		}
+
+		ClientPlayNetworking.send(new DropInventorySlotPayload(sourceSlot, DropInventorySlotPayload.ALL_ITEMS));
 		requestScan();
 		return true;
 	}

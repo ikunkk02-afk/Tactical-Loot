@@ -17,7 +17,7 @@ Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量
 
 - 阻止玩家通过碰撞自动吸取地面物品，不影响物品物理、寿命、漏斗或其他运输方式
 - 按 Vanilla 的 Item + Data Components 语义聚合附近相同掉落物；Stack Count 不参与分组身份
-- HUD 按 Loot Group 显示真实物品名称、图标和附近总数量，数量可以超过单个物品栈上限
+- HUD 按 Loot Group 显示真实物品名称、图标和附近总数量，数量可以超过单个物品栈上限；普通探索时使用紧凑提示，按 F 后才展开完整选择与操作信息
 - 选中附魔物品时显示最多 5 条 Vanilla 本地化附魔详情，并支持附魔书的 Stored Enchantments
 - 附近有物品时按 F 进入拾取模式，并屏蔽本次原版副手交换
 - 拾取模式中使用滚轮按 Group 循环选择，不改变快捷栏槽位
@@ -36,14 +36,16 @@ Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量
 - 过滤规则持久化在 `config/tactical_pickup_filters.json`，跨世界和服务器沿用；移除模组后其 Item ID 规则仍会保留
 - Hidden 只影响 Tactical Pickup 的客户端显示与选择，不删除 ItemEntity，也不干涉水流、漏斗、五分钟寿命或其他模组系统
 - 安装 Mod Menu 后可从 `Mods → Tactical Pickup → Config` 打开同一过滤管理界面；不安装时 O 入口及全部功能仍可用
-- 按 H 主动打开不会暂停游戏的大型战利品界面；它不会因附近 Group 数量自动弹出，F 仍是默认快速拾取方式
-- 大型界面以自适应滚动卡片 Grid 显示所有可见 LootGroup，并支持按本地化名称或完整 Item ID 搜索
-- 右侧实时显示只读的玩家主背包与快捷栏；它只作为库存容量参考和拖放目标，不允许整理槽位或向地面丢弃
-- 单击 Loot Card 只会选中并显示总量、过滤状态与最多 5 条附魔；Vanilla Item Tooltip 继续提供完整 Components、耐久、药水和模组物品信息
-- 按住 Loot Card 移动超过 5 GUI 像素后可拖入整个背包面板，或使用详情区“拾取”按钮发送相同请求
-- Loot Screen 的 ALL/指定数量与 HUD 共用同一客户端数量语义；客户端仍只发送代表实体 ID 与请求数量
+- 按 H 主动打开不会暂停游戏的紧凑型战利品界面；默认尺寸为 420×240 GUI 逻辑像素，F 仍是默认快速拾取方式
+- 玩家主背包位于左侧并按 Vanilla 的 3×9 主背包 + 1×9 Hotbar 排列；附近战利品位于右侧并使用可滚动的 18px Slot Grid
+- 单击 Loot Slot 只会选中并显示总量、过滤状态与最多 5 条附魔；Vanilla Item Tooltip 继续提供完整 Components、耐久、药水和模组物品信息
+- Shift + 鼠标右键 Loot Slot 会通过现有安全拾取协议快速拾取整个 Group；普通右键不会触发拾取
+- 按住 Loot Slot 移动超过 5 GUI 像素并松到某个具体背包格，只尝试该格；不兼容、已满或落在槽外时取消，不自动换位
+- 按住非空背包格拖到右侧附近战利品区域，会通过服务端原版丢弃行为将整个 Stack 丢到世界，并保留全部 Data Components 与 Pickup Delay
+- 详情区“拾取”按钮继续使用 ALL/指定数量的通用拾取；定向拖放使用独立协议且绝不调用会搜索其他槽的 `Inventory.add`
+- Loot Screen 不是 Container：单击背包格不会拿起 Cursor Stack，所有拾取与丢弃都由服务器重新验证并同步
 - HIDDEN 不进入 Loot Screen，LOW_PRIORITY 继续显示但排在全部 Normal 后；完整过滤管理仍由 O 打开
-- 战利品卡片只随服务端同步后的下一次扫描更新；拖放不会直接修改客户端 Inventory 或 ItemEntity
+- 战利品 Slot 只随服务端同步后的下一次扫描更新；拖放不会直接修改客户端 Inventory 或 ItemEntity
 - 受到实际伤害、死亡、切换维度或断开连接时 Loot Screen 会立即关闭并清理临时拖动状态
 
 ## 构建

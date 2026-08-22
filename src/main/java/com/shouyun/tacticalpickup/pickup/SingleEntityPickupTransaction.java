@@ -63,6 +63,56 @@ public final class SingleEntityPickupTransaction {
 		return insertedCount;
 	}
 
+	public static int tryPickupSingleEntityToSlot(
+			ServerPlayer player,
+			ItemEntity itemEntity,
+			int maxAmount,
+			int targetSlot
+	) {
+		if (targetSlot < 0 || targetSlot >= Inventory.INVENTORY_SIZE || maxAmount <= 0) {
+			return 0;
+		}
+
+		ItemStack groundStack = itemEntity.getItem();
+		if (groundStack.isEmpty() || groundStack.getCount() <= 0) {
+			return 0;
+		}
+
+		Inventory inventory = player.getInventory();
+		ItemStack targetStack = inventory.getItem(targetSlot);
+		if (!targetStack.isEmpty() && !ItemStack.isSameItemSameComponents(targetStack, groundStack)) {
+			return 0;
+		}
+
+		int slotLimit = inventory.getMaxStackSize(groundStack);
+		int currentCount = targetStack.isEmpty() ? 0 : targetStack.getCount();
+		int insertedCount = Math.min(Math.min(maxAmount, groundStack.getCount()), slotLimit - currentCount);
+		if (insertedCount <= 0) {
+			return 0;
+		}
+
+		int originalGroundCount = groundStack.getCount();
+		if (targetStack.isEmpty()) {
+			inventory.setItem(targetSlot, groundStack.copyWithCount(insertedCount));
+		} else {
+			targetStack.grow(insertedCount);
+			inventory.setItem(targetSlot, targetStack);
+		}
+		inventory.setChanged();
+
+		player.take(itemEntity, insertedCount);
+		int remainingGroundCount = originalGroundCount - insertedCount;
+		if (remainingGroundCount == 0) {
+			itemEntity.discard();
+		} else {
+			itemEntity.setItem(groundStack.copyWithCount(remainingGroundCount));
+		}
+
+		player.awardStat(Stats.ITEM_PICKED_UP.get(groundStack.getItem()), insertedCount);
+		player.onItemPickup(itemEntity);
+		return insertedCount;
+	}
+
 	private static int countMatching(Inventory inventory, ItemStack referenceStack) {
 		int count = 0;
 

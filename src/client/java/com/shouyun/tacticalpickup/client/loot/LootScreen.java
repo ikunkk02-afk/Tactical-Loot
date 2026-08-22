@@ -1,6 +1,9 @@
 package com.shouyun.tacticalpickup.client.loot;
 
 import com.shouyun.tacticalpickup.client.input.ClientKeyMappings;
+import com.shouyun.tacticalpickup.client.loot.LootScreenDragState.InventorySnapshot;
+import com.shouyun.tacticalpickup.client.loot.LootScreenDragState.LootSnapshot;
+import com.shouyun.tacticalpickup.client.loot.LootScreenDragState.Snapshot;
 import com.shouyun.tacticalpickup.client.loot.LootScreenLayout.Bounds;
 import com.shouyun.tacticalpickup.client.pickup.ClientPickupManager;
 import com.shouyun.tacticalpickup.client.ui.ItemDetailHelper;
@@ -9,38 +12,42 @@ import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.network.PickupRequestPayload;
 import com.shouyun.tacticalpickup.pickup.LootGroup;
 import java.util.List;
+import java.util.Locale;
+import java.util.OptionalInt;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
 public final class LootScreen extends Screen {
-	private static final int BACKDROP_COLOR = 0x98000000;
-	private static final int PANEL_COLOR = 0xE0101217;
-	private static final int INSET_COLOR = 0xB0181B21;
-	private static final int CARD_COLOR = 0xC021252C;
-	private static final int CARD_HOVER_COLOR = 0xD02C333D;
-	private static final int SELECTED_COLOR = 0xE03D5265;
-	private static final int DROP_HIGHLIGHT_COLOR = 0x705F9B73;
-	private static final int BORDER_COLOR = 0xFF59636E;
-	private static final int ACCENT_COLOR = 0xFF78A8C8;
-	private static final int TEXT_COLOR = 0xFFF2F4F7;
-	private static final int MUTED_TEXT_COLOR = 0xFF9DA5AF;
-	private static final int LOW_PRIORITY_COLOR = 0xFFD0A66A;
-	private static final int SLOT_COLOR = 0xB0090B0E;
-	private static final int SLOT_BORDER_COLOR = 0xFF3B4149;
-	private static final int BUTTON_GAP = 3;
+	private static final ResourceLocation SLOT_SPRITE = ResourceLocation.withDefaultNamespace("container/slot");
+	private static final int WORLD_DIM_COLOR = 0x60000000;
+	private static final int PANEL_COLOR = 0xFFC6C6C6;
+	private static final int PANEL_HIGHLIGHT_COLOR = 0xFFFFFFFF;
+	private static final int PANEL_MID_COLOR = 0xFF8B8B8B;
+	private static final int PANEL_SHADOW_COLOR = 0xFF373737;
+	private static final int TEXT_COLOR = 0xFF404040;
+	private static final int MUTED_TEXT_COLOR = 0xFF666666;
+	private static final int LOW_PRIORITY_OVERLAY = 0x58000000;
+	private static final int LOW_PRIORITY_MARKER = 0xFF6A604D;
+	private static final int SELECTED_COLOR = 0xFFF5F5F5;
+	private static final int COMPATIBLE_COLOR = 0xFFD8E4D0;
+	private static final int INCOMPATIBLE_COLOR = 0xFF6F3E3E;
+	private static final int DROP_OVERLAY_COLOR = 0x307A886F;
+	private static final int BUTTON_GAP = 2;
 
 	private final ClientPickupManager pickupManager = ClientPickupManager.getInstance();
 	private final LootSelectionState selectionState = new LootSelectionState();
-	private final LootDragState dragState = new LootDragState();
+	private final LootScreenDragState dragState = new LootScreenDragState();
 	private List<LootGroup> visibleGroups = List.of();
 	private LootScreenLayout layout;
 	private EditBox searchBox;
@@ -53,7 +60,7 @@ public final class LootScreen extends Screen {
 	private LocalPlayer openedPlayer;
 	private ResourceKey<Level> openedDimension;
 	private double scrollOffset;
-	private LootGroup hoveredTooltipGroup;
+	private ItemStack hoveredTooltipStack = ItemStack.EMPTY;
 
 	public LootScreen() {
 		super(Component.translatable("tactical_pickup.loot.title"));
@@ -95,32 +102,21 @@ public final class LootScreen extends Screen {
 
 	private void createDetailButtons() {
 		Bounds detail = layout.detailPanel();
-		int[] widths = {36, 30, 44, 30, 36, 56};
-		int totalWidth = 0;
-		for (int buttonWidth : widths) {
-			totalWidth += buttonWidth;
+		int[] widths = {22, 18, 30, 18, 22};
+		int quantityWidth = 0;
+		for (int width : widths) {
+			quantityWidth += width;
 		}
-		totalWidth += BUTTON_GAP * (widths.length - 1);
-		int x = detail.x() + Math.max(5, (detail.width() - totalWidth) / 2);
-		int y = Math.max(detail.y() + 2, detail.bottom() - 23);
+		quantityWidth += BUTTON_GAP * (widths.length - 1);
 
-		minusSixteenButton = addRenderableWidget(quantityButton(
-			Component.literal("-16"),
-			x,
-			y,
-			widths[0],
-			-1,
-			16
-		));
+		int pickupWidth = 46;
+		boolean singleRow = detail.width() >= quantityWidth + 4 + pickupWidth + 6;
+		int quantityX = detail.x() + Math.max(3, (detail.width() - (singleRow ? quantityWidth + 4 + pickupWidth : quantityWidth)) / 2);
+		int quantityY = singleRow ? Math.max(detail.y() + 2, detail.bottom() - 23) : detail.y() + 2;
+		int x = quantityX;
+		minusSixteenButton = addRenderableWidget(quantityButton(Component.literal("-16"), x, quantityY, widths[0], -1, 16));
 		x += widths[0] + BUTTON_GAP;
-		minusOneButton = addRenderableWidget(quantityButton(
-			Component.literal("-1"),
-			x,
-			y,
-			widths[1],
-			-1,
-			1
-		));
+		minusOneButton = addRenderableWidget(quantityButton(Component.literal("-1"), x, quantityY, widths[1], -1, 1));
 		x += widths[1] + BUTTON_GAP;
 		allButton = addRenderableWidget(Button.builder(
 			Component.translatable("tactical_pickup.loot.amount_all_button"),
@@ -128,30 +124,18 @@ public final class LootScreen extends Screen {
 				selectionState.resetAmount();
 				updateButtonState();
 			}
-		).bounds(x, y, widths[2], 20).build());
+		).bounds(x, quantityY, widths[2], 20).build());
 		x += widths[2] + BUTTON_GAP;
-		plusOneButton = addRenderableWidget(quantityButton(
-			Component.literal("+1"),
-			x,
-			y,
-			widths[3],
-			1,
-			1
-		));
+		plusOneButton = addRenderableWidget(quantityButton(Component.literal("+1"), x, quantityY, widths[3], 1, 1));
 		x += widths[3] + BUTTON_GAP;
-		plusSixteenButton = addRenderableWidget(quantityButton(
-			Component.literal("+16"),
-			x,
-			y,
-			widths[4],
-			1,
-			16
-		));
-		x += widths[4] + BUTTON_GAP;
+		plusSixteenButton = addRenderableWidget(quantityButton(Component.literal("+16"), x, quantityY, widths[4], 1, 16));
+
+		int pickupX = singleRow ? quantityX + quantityWidth + 4 : detail.x() + Math.max(3, (detail.width() - pickupWidth) / 2);
+		int pickupY = singleRow ? quantityY : Math.min(detail.bottom() - 21, quantityY + 22);
 		pickupButton = addRenderableWidget(Button.builder(
 			Component.translatable("tactical_pickup.loot.pickup"),
 			button -> pickupSelected()
-		).bounds(x, y, widths[5], 20).build());
+		).bounds(pickupX, pickupY, pickupWidth, 20).build());
 		updateButtonState();
 	}
 
@@ -223,56 +207,116 @@ public final class LootScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-		hoveredTooltipGroup = null;
-		graphics.fill(0, 0, width, height, BACKDROP_COLOR);
-		fillPanel(graphics, layout.panel(), PANEL_COLOR, ACCENT_COLOR);
+		hoveredTooltipStack = ItemStack.EMPTY;
+		graphics.fill(0, 0, width, height, WORLD_DIM_COLOR);
+		renderRaisedPanel(graphics, layout.panel());
+		renderRaisedPanel(graphics, layout.inventoryPanel());
+		renderRaisedPanel(graphics, layout.lootPanel());
+		renderRaisedPanel(graphics, layout.detailPanel());
 		renderHeader(graphics);
-		fillPanel(graphics, layout.lootPanel(), INSET_COLOR, BORDER_COLOR);
-		fillPanel(graphics, layout.inventoryPanel(), INSET_COLOR, BORDER_COLOR);
-		fillPanel(graphics, layout.detailPanel(), INSET_COLOR, BORDER_COLOR);
-		renderLootPanel(graphics, mouseX, mouseY);
 		renderInventoryPanel(graphics, mouseX, mouseY);
+		renderLootPanel(graphics, mouseX, mouseY);
 		renderDetailPanel(graphics);
 		super.render(graphics, mouseX, mouseY, partialTick);
 
 		if (dragState.isDragging()) {
 			renderDragGhost(graphics, mouseX, mouseY);
-		} else if (hoveredTooltipGroup != null) {
-			graphics.renderTooltip(font, hoveredTooltipGroup.displayStack(), mouseX, mouseY);
+		} else if (!hoveredTooltipStack.isEmpty()) {
+			graphics.renderTooltip(font, hoveredTooltipStack, mouseX, mouseY);
 		}
 	}
 
 	@Override
 	public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-		// This screen draws its own dark backdrop before the widgets. Letting Screen render
-		// the vanilla background here would blur the custom panels that were already drawn.
+		// A light pixel-sharp dim is rendered before the Vanilla-style panels above.
 	}
 
 	private void renderHeader(GuiGraphics graphics) {
 		Bounds panel = layout.panel();
-		graphics.drawString(font, title, panel.x() + 7, panel.y() + 8, TEXT_COLOR, true);
+		graphics.drawString(font, title, panel.x() + 8, panel.y() + 8, TEXT_COLOR, false);
 		Component count = Component.translatable("tactical_pickup.loot.group_count", pickupManager.groups().size());
 		graphics.drawString(
 			font,
 			count,
-			panel.right() - font.width(count) - 7,
+			panel.right() - font.width(count) - 8,
 			panel.y() + 8,
 			MUTED_TEXT_COLOR,
 			false
 		);
 	}
 
-	private void renderLootPanel(GuiGraphics graphics, int mouseX, int mouseY) {
-		Bounds panel = layout.lootPanel();
-		Bounds viewport = layout.lootViewport();
+	private void renderInventoryPanel(GuiGraphics graphics, int mouseX, int mouseY) {
+		Bounds panel = layout.inventoryPanel();
 		graphics.drawString(
 			font,
-			Component.translatable("tactical_pickup.loot.nearby"),
+			Component.translatable("tactical_pickup.loot.inventory"),
 			panel.x() + 5,
 			panel.y() + 5,
 			TEXT_COLOR,
 			false
 		);
+		if (minecraft.player == null) {
+			return;
+		}
+
+		Inventory inventory = minecraft.player.getInventory();
+		OptionalInt hoveredSlot = layout.inventorySlotAt(mouseX, mouseY);
+		for (int slot = 0; slot < Inventory.INVENTORY_SIZE; slot++) {
+			Bounds slotBounds = layout.inventorySlotBounds(slot);
+			if (!isFullyInside(panel, slotBounds)) {
+				continue;
+			}
+
+			graphics.blitSprite(SLOT_SPRITE, slotBounds.x(), slotBounds.y(), slotBounds.width(), slotBounds.height());
+			ItemStack stack = inventory.getItem(slot);
+			if (!stack.isEmpty()) {
+				graphics.renderItem(stack, slotBounds.x() + 1, slotBounds.y() + 1);
+				graphics.renderItemDecorations(font, stack, slotBounds.x() + 1, slotBounds.y() + 1);
+			}
+
+			if (hoveredSlot.isPresent() && hoveredSlot.getAsInt() == slot) {
+				if (dragState.isDragging() && dragState.snapshot() instanceof LootSnapshot lootSnapshot) {
+					boolean compatible = canAcceptLoot(stack, lootSnapshot.displayStack());
+					drawBorder(graphics, slotBounds, compatible ? COMPATIBLE_COLOR : INCOMPATIBLE_COLOR);
+					if (!compatible) {
+						graphics.drawCenteredString(font, Component.literal("×"), slotBounds.x() + 9, slotBounds.y() + 5, INCOMPATIBLE_COLOR);
+					}
+				} else if (!dragState.isDragging()) {
+					AbstractContainerScreen.renderSlotHighlight(graphics, slotBounds.x() + 1, slotBounds.y() + 1, 250);
+					if (!stack.isEmpty()) {
+						hoveredTooltipStack = stack;
+					}
+				}
+			}
+		}
+
+		if (!layout.stacked()) {
+			Component help = Component.translatable("tactical_pickup.loot.inventory_drag_hint");
+			int helpY = panel.bottom() + 8;
+			int helpWidth = Math.max(1, panel.width() - 8);
+			String clipped = font.plainSubstrByWidth(help.getString(), helpWidth);
+			graphics.drawString(font, clipped, panel.x() + 4, helpY, MUTED_TEXT_COLOR, false);
+		}
+	}
+
+	private boolean canAcceptLoot(ItemStack targetStack, ItemStack lootStack) {
+		if (targetStack.isEmpty()) {
+			return true;
+		}
+		return ItemStack.isSameItemSameComponents(targetStack, lootStack)
+			&& targetStack.getCount() < minecraft.player.getInventory().getMaxStackSize(lootStack);
+	}
+
+	private void renderLootPanel(GuiGraphics graphics, int mouseX, int mouseY) {
+		Bounds panel = layout.lootPanel();
+		Bounds viewport = layout.lootViewport();
+		boolean inventoryDropTarget = dragState.isDragging()
+			&& dragState.snapshot() instanceof InventorySnapshot
+			&& panel.contains(mouseX, mouseY);
+		Component heading = inventoryDropTarget
+			? Component.translatable("tactical_pickup.loot.world_drop_hint")
+			: Component.translatable("tactical_pickup.loot.nearby");
+		graphics.drawString(font, heading, panel.x() + 5, panel.y() + 5, TEXT_COLOR, false);
 
 		if (visibleGroups.isEmpty()) {
 			Component empty = searchBox.getValue().isBlank()
@@ -282,55 +326,64 @@ public final class LootScreen extends Screen {
 				font,
 				empty,
 				viewport.x() + viewport.width() / 2,
-				viewport.y() + Math.max(4, viewport.height() / 2 - font.lineHeight / 2),
+				viewport.y() + Math.max(2, viewport.height() / 2 - font.lineHeight / 2),
 				MUTED_TEXT_COLOR
 			);
-			return;
+		} else {
+			graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
+			for (int index = 0; index < visibleGroups.size(); index++) {
+				Bounds slotBounds = layout.lootSlotBounds(index, scrollOffset);
+				if (!slotBounds.intersects(viewport)) {
+					continue;
+				}
+
+				LootGroup group = visibleGroups.get(index);
+				ItemFilterState state = pickupManager.filterManager().getState(LootGroupFilter.itemId(group));
+				boolean selected = group.key().equals(selectionState.selectedKey());
+				boolean hovered = viewport.contains(mouseX, mouseY) && slotBounds.contains(mouseX, mouseY);
+				graphics.blitSprite(SLOT_SPRITE, slotBounds.x(), slotBounds.y(), slotBounds.width(), slotBounds.height());
+				ItemStack displayStack = group.displayStack().copyWithCount(1);
+				graphics.renderItem(displayStack, slotBounds.x() + 1, slotBounds.y() + 1);
+				graphics.renderItemDecorations(
+					font,
+					displayStack,
+					slotBounds.x() + 1,
+					slotBounds.y() + 1,
+					formatSlotCount(group.totalCount())
+				);
+
+				if (state == ItemFilterState.LOW_PRIORITY) {
+					graphics.fill(slotBounds.x() + 1, slotBounds.y() + 1, slotBounds.right() - 1, slotBounds.bottom() - 1, LOW_PRIORITY_OVERLAY);
+					graphics.fill(slotBounds.x() + 2, slotBounds.y() + 2, slotBounds.x() + 5, slotBounds.y() + 3, LOW_PRIORITY_MARKER);
+				}
+				if (selected) {
+					drawBorder(graphics, slotBounds, SELECTED_COLOR);
+				}
+				if (hovered && !dragState.isDragging()) {
+					AbstractContainerScreen.renderSlotHighlight(graphics, slotBounds.x() + 1, slotBounds.y() + 1, 250);
+					hoveredTooltipStack = group.displayStack();
+				}
+			}
+			graphics.disableScissor();
+			renderScrollBar(graphics);
 		}
 
-		graphics.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
-		for (int index = 0; index < visibleGroups.size(); index++) {
-			Bounds card = layout.cardBounds(index, scrollOffset);
-			if (!card.intersects(viewport)) {
-				continue;
-			}
-
-			LootGroup group = visibleGroups.get(index);
-			boolean selected = group.key().equals(selectionState.selectedKey());
-			boolean hovered = viewport.contains(mouseX, mouseY) && card.contains(mouseX, mouseY);
-			ItemFilterState state = pickupManager.filterManager().getState(LootGroupFilter.itemId(group));
-			int cardColor = selected ? SELECTED_COLOR : hovered ? CARD_HOVER_COLOR : CARD_COLOR;
-			graphics.fill(card.x(), card.y(), card.right(), card.bottom(), cardColor);
-			int borderColor = state == ItemFilterState.LOW_PRIORITY ? LOW_PRIORITY_COLOR : BORDER_COLOR;
-			drawBorder(graphics, card, borderColor);
-
-			int itemX = card.x() + 5;
-			int itemY = card.y() + 10;
-			graphics.renderItem(group.displayStack(), itemX, itemY);
-			int textX = card.x() + 26;
-			int textWidth = Math.max(1, card.width() - 30);
-			String name = font.plainSubstrByWidth(group.displayStack().getHoverName().getString(), textWidth);
-			int nameColor = state == ItemFilterState.LOW_PRIORITY && !selected ? MUTED_TEXT_COLOR : TEXT_COLOR;
-			graphics.drawString(font, name, textX, card.y() + 6, nameColor, true);
-			Component count = state == ItemFilterState.LOW_PRIORITY
-				? Component.translatable("tactical_pickup.loot.card_count_low", group.totalCount())
-				: Component.translatable("tactical_pickup.loot.card_count", group.totalCount());
-			String countText = font.plainSubstrByWidth(count.getString(), textWidth);
-			graphics.drawString(
-				font,
-				countText,
-				textX,
-				card.y() + 20,
-				state == ItemFilterState.LOW_PRIORITY ? LOW_PRIORITY_COLOR : MUTED_TEXT_COLOR,
-				false
-			);
-
-			if (hovered && mouseX >= itemX && mouseX < itemX + 16 && mouseY >= itemY && mouseY < itemY + 16) {
-				hoveredTooltipGroup = group;
-			}
+		if (inventoryDropTarget) {
+			graphics.fill(panel.x() + 2, panel.y() + 20, panel.right() - 2, panel.bottom() - 2, DROP_OVERLAY_COLOR);
+			drawBorder(graphics, panel, COMPATIBLE_COLOR);
 		}
-		graphics.disableScissor();
-		renderScrollBar(graphics);
+	}
+
+	private String formatSlotCount(int count) {
+		String exact = Integer.toString(count);
+		if (font.width(exact) <= 20) {
+			return exact;
+		}
+
+		double divisor = count >= 1_000_000 ? 1_000_000.0D : 1_000.0D;
+		String suffix = count >= 1_000_000 ? "M" : "k";
+		String compact = String.format(Locale.ROOT, "%.1f%s", count / divisor, suffix);
+		return compact.replace(".0" + suffix, suffix);
 	}
 
 	private void renderScrollBar(GuiGraphics graphics) {
@@ -340,61 +393,14 @@ public final class LootScreen extends Screen {
 		}
 
 		Bounds viewport = layout.lootViewport();
-		int barX = viewport.right() - 2;
+		int barX = Math.min(layout.lootPanel().right() - 4, viewport.right() + 2);
 		int thumbHeight = Math.max(12, (int) Math.round(
 			viewport.height() * (viewport.height() / (viewport.height() + maxScroll))
 		));
 		int travel = Math.max(1, viewport.height() - thumbHeight);
 		int thumbY = viewport.y() + (int) Math.round(travel * (scrollOffset / maxScroll));
-		graphics.fill(barX, viewport.y(), barX + 2, viewport.bottom(), 0x70282D34);
-		graphics.fill(barX, thumbY, barX + 2, thumbY + thumbHeight, ACCENT_COLOR);
-	}
-
-	private void renderInventoryPanel(GuiGraphics graphics, int mouseX, int mouseY) {
-		Bounds panel = layout.inventoryPanel();
-		boolean dropTarget = dragState.isDragging() && panel.contains(mouseX, mouseY);
-		if (dropTarget) {
-			graphics.fill(panel.x() + 1, panel.y() + 1, panel.right() - 1, panel.bottom() - 1, DROP_HIGHLIGHT_COLOR);
-		}
-
-		Component heading = dropTarget
-			? Component.translatable("tactical_pickup.loot.drop_hint")
-			: Component.translatable("tactical_pickup.loot.inventory");
-		graphics.drawString(
-			font,
-			heading,
-			panel.x() + 5,
-			panel.y() + 5,
-			dropTarget ? TEXT_COLOR : MUTED_TEXT_COLOR,
-			false
-		);
-		if (minecraft.player == null) {
-			return;
-		}
-
-		Inventory inventory = minecraft.player.getInventory();
-		int gridWidth = LootScreenLayout.SLOT_SIZE * 9;
-		int gridX = panel.x() + Math.max(4, (panel.width() - gridWidth) / 2);
-		int gridY = panel.y() + 17;
-		for (int row = 0; row < 4; row++) {
-			for (int column = 0; column < 9; column++) {
-				int slotX = gridX + column * LootScreenLayout.SLOT_SIZE;
-				int slotY = gridY + row * LootScreenLayout.SLOT_SIZE;
-				if (slotX + LootScreenLayout.SLOT_SIZE > panel.right()
-						|| slotY + LootScreenLayout.SLOT_SIZE > panel.bottom()) {
-					continue;
-				}
-
-				graphics.fill(slotX, slotY, slotX + 18, slotY + 18, SLOT_BORDER_COLOR);
-				graphics.fill(slotX + 1, slotY + 1, slotX + 17, slotY + 17, SLOT_COLOR);
-				int inventorySlot = row < 3 ? 9 + row * 9 + column : column;
-				ItemStack stack = inventory.getItem(inventorySlot);
-				if (!stack.isEmpty()) {
-					graphics.renderItem(stack, slotX + 1, slotY + 1);
-					graphics.renderItemDecorations(font, stack, slotX + 1, slotY + 1);
-				}
-			}
-		}
+		graphics.fill(barX, viewport.y(), barX + 2, viewport.bottom(), PANEL_SHADOW_COLOR);
+		graphics.fill(barX, thumbY, barX + 2, thumbY + thumbHeight, PANEL_HIGHLIGHT_COLOR);
 	}
 
 	private void renderDetailPanel(GuiGraphics graphics) {
@@ -412,19 +418,12 @@ public final class LootScreen extends Screen {
 			return;
 		}
 
-		int basicX = detail.x() + 7;
-		int basicY = detail.y() + 6;
-		int basicWidth = detail.width() >= 520 ? detail.width() / 2 - 12 : detail.width() - 14;
-		String selectedName = font.plainSubstrByWidth(selected.displayStack().getHoverName().getString(), basicWidth);
-		graphics.drawString(font, selectedName, basicX, basicY, TEXT_COLOR, true);
-		graphics.drawString(
-			font,
-			Component.translatable("tactical_pickup.loot.total", selected.totalCount()),
-			basicX,
-			basicY + 12,
-			MUTED_TEXT_COLOR,
-			false
-		);
+		int textX = detail.x() + 7;
+		int textY = detail.y() + 6;
+		int textWidth = Math.max(1, detail.width() - 14);
+		int buttonsY = minusOneButton == null ? detail.bottom() : Math.min(minusOneButton.getY(), pickupButton.getY());
+		String selectedName = font.plainSubstrByWidth(selected.displayStack().getHoverName().getString(), textWidth);
+		graphics.drawString(font, selectedName, textX, textY, TEXT_COLOR, false);
 		Component amount = selectionState.pickupAll()
 			? Component.translatable("tactical_pickup.loot.amount_all", selected.totalCount())
 			: Component.translatable(
@@ -432,26 +431,37 @@ public final class LootScreen extends Screen {
 				selectionState.selectedAmount(selected.totalCount()),
 				selected.totalCount()
 			);
-		graphics.drawString(font, amount, basicX, basicY + 23, TEXT_COLOR, false);
 		ItemFilterState filterState = pickupManager.filterManager().getState(LootGroupFilter.itemId(selected));
-		graphics.drawString(
-			font,
-			Component.translatable(
-				"tactical_pickup.loot.filter_state",
-				Component.translatable(filterState.translationKey())
-			),
-			basicX,
-			basicY + 34,
-			filterState == ItemFilterState.LOW_PRIORITY ? LOW_PRIORITY_COLOR : MUTED_TEXT_COLOR,
-			false
-		);
+		if (textY + 12 + font.lineHeight <= buttonsY) {
+			graphics.drawString(
+				font,
+				Component.translatable("tactical_pickup.loot.total", selected.totalCount()),
+				textX,
+				textY + 12,
+				MUTED_TEXT_COLOR,
+				false
+			);
+		}
+		if (textY + 23 + font.lineHeight <= buttonsY) {
+			graphics.drawString(font, amount, textX, textY + 23, TEXT_COLOR, false);
+		}
+		if (textY + 34 + font.lineHeight <= buttonsY) {
+			graphics.drawString(
+				font,
+				Component.translatable(
+					"tactical_pickup.loot.filter_state",
+					Component.translatable(filterState.translationKey())
+				),
+				textX,
+				textY + 34,
+				filterState == ItemFilterState.LOW_PRIORITY ? LOW_PRIORITY_MARKER : MUTED_TEXT_COLOR,
+				false
+			);
+		}
 
 		List<Component> enchantments = ItemDetailHelper.collectEnchantments(minecraft, selected.displayStack());
 		if (!enchantments.isEmpty()) {
-			int enchantmentX = detail.width() >= 520 ? detail.x() + detail.width() / 2 : basicX;
-			int enchantmentY = detail.width() >= 520 ? basicY : basicY + 46;
-			int enchantmentWidth = detail.width() >= 520 ? detail.width() / 2 - 10 : detail.width() - 14;
-			int buttonsY = minusOneButton == null ? detail.bottom() : minusOneButton.getY();
+			int enchantmentY = textY + 46;
 			int availableLines = Math.max(0, (buttonsY - enchantmentY - font.lineHeight - 2) / (font.lineHeight + 1));
 			int visibleCount = Math.min(
 				Math.min(enchantments.size(), ItemDetailHelper.MAX_VISIBLE_ENCHANTMENTS),
@@ -461,17 +471,17 @@ public final class LootScreen extends Screen {
 				graphics.drawString(
 					font,
 					Component.translatable("tactical_pickup.loot.enchantments"),
-					enchantmentX,
+					textX,
 					enchantmentY,
 					TEXT_COLOR,
 					false
 				);
 				for (int index = 0; index < visibleCount; index++) {
-					String text = font.plainSubstrByWidth(enchantments.get(index).getString(), enchantmentWidth);
+					String line = font.plainSubstrByWidth(enchantments.get(index).getString(), textWidth);
 					graphics.drawString(
 						font,
-						text,
-						enchantmentX,
+						line,
+						textX,
 						enchantmentY + font.lineHeight + 2 + index * (font.lineHeight + 1),
 						MUTED_TEXT_COLOR,
 						false
@@ -482,28 +492,37 @@ public final class LootScreen extends Screen {
 	}
 
 	private void renderDragGhost(GuiGraphics graphics, int mouseX, int mouseY) {
-		LootDragState.Snapshot snapshot = dragState.snapshot();
-		if (snapshot == null) {
+		Snapshot snapshot = dragState.snapshot();
+		if (snapshot.displayStack().isEmpty()) {
 			return;
 		}
 
-		Component amount = snapshot.requestedAmount() == PickupRequestPayload.ALL_ITEMS
-			? Component.translatable("tactical_pickup.loot.drag_all")
-			: Component.translatable("tactical_pickup.loot.card_count", snapshot.requestedAmount());
+		Component amount = snapshot instanceof LootSnapshot lootSnapshot
+			? lootSnapshot.requestedAmount() == PickupRequestPayload.ALL_ITEMS
+				? Component.translatable("tactical_pickup.loot.drag_all")
+				: Component.translatable("tactical_pickup.loot.card_count", lootSnapshot.requestedAmount())
+			: Component.translatable("tactical_pickup.loot.card_count", snapshot.displayStack().getCount());
 		String label = snapshot.displayStack().getHoverName().getString() + " " + amount.getString();
 		int ghostWidth = Math.min(190, Math.max(72, font.width(label) + 30));
 		int ghostX = Math.max(2, Math.min(mouseX + 10, width - ghostWidth - 2));
 		int ghostY = Math.max(2, Math.min(mouseY + 10, height - 24));
-		graphics.fill(ghostX, ghostY, ghostX + ghostWidth, ghostY + 22, 0xE0191D22);
-		drawBorder(graphics, new Bounds(ghostX, ghostY, ghostWidth, 22), ACCENT_COLOR);
-		graphics.renderItem(snapshot.displayStack(), ghostX + 3, ghostY + 3);
+		Bounds ghost = new Bounds(ghostX, ghostY, ghostWidth, 22);
+		renderRaisedPanel(graphics, ghost);
+		graphics.renderItem(snapshot.displayStack().copyWithCount(1), ghostX + 3, ghostY + 3);
 		String clipped = font.plainSubstrByWidth(label, ghostWidth - 26);
-		graphics.drawString(font, clipped, ghostX + 23, ghostY + 7, TEXT_COLOR, true);
+		graphics.drawString(font, clipped, ghostX + 23, ghostY + 7, TEXT_COLOR, false);
 	}
 
-	private static void fillPanel(GuiGraphics graphics, Bounds bounds, int fillColor, int borderColor) {
-		graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), fillColor);
-		drawBorder(graphics, bounds, borderColor);
+	private static void renderRaisedPanel(GuiGraphics graphics, Bounds bounds) {
+		graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), PANEL_COLOR);
+		graphics.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + 1, PANEL_HIGHLIGHT_COLOR);
+		graphics.fill(bounds.x(), bounds.y(), bounds.x() + 1, bounds.bottom(), PANEL_HIGHLIGHT_COLOR);
+		graphics.fill(bounds.x(), bounds.bottom() - 1, bounds.right(), bounds.bottom(), PANEL_SHADOW_COLOR);
+		graphics.fill(bounds.right() - 1, bounds.y(), bounds.right(), bounds.bottom(), PANEL_SHADOW_COLOR);
+		if (bounds.width() > 3 && bounds.height() > 3) {
+			graphics.fill(bounds.x() + 1, bounds.bottom() - 2, bounds.right() - 1, bounds.bottom() - 1, PANEL_MID_COLOR);
+			graphics.fill(bounds.right() - 2, bounds.y() + 1, bounds.right() - 1, bounds.bottom() - 1, PANEL_MID_COLOR);
+		}
 	}
 
 	private static void drawBorder(GuiGraphics graphics, Bounds bounds, int color) {
@@ -513,26 +532,63 @@ public final class LootScreen extends Screen {
 		graphics.fill(bounds.right() - 1, bounds.y(), bounds.right(), bounds.bottom(), color);
 	}
 
+	private static boolean isFullyInside(Bounds outer, Bounds inner) {
+		return inner.x() >= outer.x()
+			&& inner.y() >= outer.y()
+			&& inner.right() <= outer.right()
+			&& inner.bottom() <= outer.bottom();
+	}
+
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		int lootIndex = lootIndexAt(mouseX, mouseY);
+		if (button == 1 && hasShiftDown() && lootIndex >= 0) {
+			LootGroup group = visibleGroups.get(lootIndex);
+			selectionState.select(group);
+			updateButtonState();
+			pickupManager.requestPickup(group.representativeEntityId(), PickupRequestPayload.ALL_ITEMS);
+			return true;
+		}
+
 		if (super.mouseClicked(mouseX, mouseY, button)) {
 			return true;
 		}
 
-		if (button == 0 && layout.lootViewport().contains(mouseX, mouseY)) {
-			for (int index = 0; index < visibleGroups.size(); index++) {
-				Bounds card = layout.cardBounds(index, scrollOffset);
-				if (card.contains(mouseX, mouseY)) {
-					LootGroup group = visibleGroups.get(index);
-					selectionState.select(group);
-					dragState.press(group, selectionState.requestedAmount(), mouseX, mouseY);
-					updateButtonState();
+		if (button == 0 && lootIndex >= 0) {
+			LootGroup group = visibleGroups.get(lootIndex);
+			selectionState.select(group);
+			dragState.pressLoot(group, selectionState.requestedAmount(), mouseX, mouseY);
+			updateButtonState();
+			return true;
+		}
+
+		if (button == 0 && minecraft.player != null) {
+			OptionalInt inventorySlot = layout.inventorySlotAt(mouseX, mouseY);
+			if (inventorySlot.isPresent()) {
+				ItemStack stack = minecraft.player.getInventory().getItem(inventorySlot.getAsInt());
+				if (!stack.isEmpty()) {
+					dragState.pressInventory(inventorySlot.getAsInt(), stack, mouseX, mouseY);
 					return true;
 				}
 			}
 		}
 
 		return false;
+	}
+
+	private int lootIndexAt(double mouseX, double mouseY) {
+		if (!layout.lootViewport().contains(mouseX, mouseY)) {
+			return -1;
+		}
+
+		for (int index = 0; index < visibleGroups.size(); index++) {
+			Bounds slotBounds = layout.lootSlotBounds(index, scrollOffset);
+			if (slotBounds.intersects(layout.lootViewport()) && slotBounds.contains(mouseX, mouseY)) {
+				return index;
+			}
+		}
+
+		return -1;
 	}
 
 	@Override
@@ -548,9 +604,20 @@ public final class LootScreen extends Screen {
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		if (button == 0 && dragState.isActive()) {
-			LootDragState.Snapshot snapshot = dragState.release(layout.inventoryPanel().contains(mouseX, mouseY));
-			if (snapshot != null) {
-				pickupManager.requestPickup(snapshot.representativeEntityId(), snapshot.requestedAmount());
+			Snapshot snapshot = dragState.finish();
+			if (snapshot instanceof LootSnapshot lootSnapshot && minecraft.player != null) {
+				OptionalInt targetSlot = layout.inventorySlotAt(mouseX, mouseY);
+				if (targetSlot.isPresent()
+						&& canAcceptLoot(minecraft.player.getInventory().getItem(targetSlot.getAsInt()), lootSnapshot.displayStack())) {
+					pickupManager.requestPickupToSlot(
+						lootSnapshot.representativeEntityId(),
+						lootSnapshot.requestedAmount(),
+						targetSlot.getAsInt()
+					);
+				}
+			} else if (snapshot instanceof InventorySnapshot inventorySnapshot
+					&& layout.lootPanel().contains(mouseX, mouseY)) {
+				pickupManager.requestDropInventorySlot(inventorySnapshot.sourceSlot());
 			}
 			return true;
 		}
@@ -561,7 +628,10 @@ public final class LootScreen extends Screen {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
 		if (layout.lootPanel().contains(mouseX, mouseY)) {
-			scrollOffset = layout.clampScroll(scrollOffset - vertical * 22.0D, visibleGroups.size());
+			scrollOffset = layout.clampScroll(
+				scrollOffset - vertical * LootScreenLayout.SLOT_SIZE,
+				visibleGroups.size()
+			);
 			return true;
 		}
 
@@ -597,6 +667,7 @@ public final class LootScreen extends Screen {
 		selectionState.clear();
 		visibleGroups = List.of();
 		scrollOffset = 0.0D;
+		hoveredTooltipStack = ItemStack.EMPTY;
 	}
 
 	@Override
