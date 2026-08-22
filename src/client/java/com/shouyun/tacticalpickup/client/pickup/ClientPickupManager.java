@@ -1,9 +1,12 @@
 package com.shouyun.tacticalpickup.client.pickup;
 
 import com.shouyun.tacticalpickup.network.PickupRequestPayload;
+import com.shouyun.tacticalpickup.pickup.LootGroup;
+import com.shouyun.tacticalpickup.pickup.LootGroupAggregator;
+import com.shouyun.tacticalpickup.pickup.LootGroupKey;
+import com.shouyun.tacticalpickup.pickup.LootGroupMember;
 import com.shouyun.tacticalpickup.pickup.PickupConstants;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -17,7 +20,7 @@ import net.minecraft.world.level.entity.EntityTypeTest;
 public final class ClientPickupManager {
 	private static final ClientPickupManager INSTANCE = new ClientPickupManager();
 
-	private List<PickupEntry> entries = List.of();
+	private List<LootGroup> groups = List.of();
 	private LocalPlayer observedPlayer;
 	private ResourceKey<Level> observedDimension;
 	private boolean pickupMode;
@@ -44,7 +47,7 @@ public final class ClientPickupManager {
 		}
 
 		if (!client.player.isAlive()) {
-			entries = List.of();
+			groups = List.of();
 			exitPickupMode();
 			return;
 		}
@@ -78,15 +81,15 @@ public final class ClientPickupManager {
 			return;
 		}
 
-		PickupEntry selected = selectedEntry();
+		LootGroup selected = selectedGroup();
 
-		if (selected == null || !isEntryValid(client, selected)) {
+		if (selected == null || !isGroupRepresentativeValid(client, selected)) {
 			forceScan = true;
 			return;
 		}
 
 		if (ClientPlayNetworking.canSend(PickupRequestPayload.TYPE)) {
-			ClientPlayNetworking.send(new PickupRequestPayload(selected.entityId()));
+			ClientPlayNetworking.send(new PickupRequestPayload(selected.representativeEntityId()));
 			forceScan = true;
 		}
 	}
@@ -127,7 +130,7 @@ public final class ClientPickupManager {
 	}
 
 	public void reset() {
-		entries = List.of();
+		groups = List.of();
 		observedPlayer = null;
 		observedDimension = null;
 		selectedIndex = 0;
@@ -140,8 +143,8 @@ public final class ClientPickupManager {
 		return pickupMode;
 	}
 
-	public List<PickupEntry> entries() {
-		return entries;
+	public List<LootGroup> groups() {
+		return groups;
 	}
 
 	public int selectedIndex() {
@@ -149,7 +152,7 @@ public final class ClientPickupManager {
 	}
 
 	private void resetForWorld(LocalPlayer player, ResourceKey<Level> dimension) {
-		entries = List.of();
+		groups = List.of();
 		observedPlayer = player;
 		observedDimension = dimension;
 		selectedIndex = 0;
@@ -160,7 +163,7 @@ public final class ClientPickupManager {
 
 	private void scan(Minecraft client) {
 		int previousIndex = selectedIndex;
-		int previousEntityId = selectedEntry() == null ? -1 : selectedEntry().entityId();
+		LootGroupKey previousKey = selectedGroup() == null ? null : selectedGroup().key();
 		List<ItemEntity> found = new ArrayList<>(PickupConstants.MAX_SCANNED_ENTITIES);
 
 		client.level.getEntities(
@@ -174,28 +177,28 @@ public final class ClientPickupManager {
 			PickupConstants.MAX_SCANNED_ENTITIES
 		);
 
-		entries = found.stream()
-			.map(itemEntity -> new PickupEntry(
+		List<LootGroupMember> members = found.stream()
+			.map(itemEntity -> new LootGroupMember(
 				itemEntity.getId(),
 				itemEntity.getItem().copy(),
 				client.player.distanceToSqr(itemEntity)
 			))
-			.sorted(Comparator.comparingDouble(PickupEntry::distanceSquared).thenComparingInt(PickupEntry::entityId))
 			.toList();
+		groups = LootGroupAggregator.group(members);
 
-		if (entries.isEmpty()) {
+		if (groups.isEmpty()) {
 			selectedIndex = 0;
 			exitPickupMode();
 			return;
 		}
 
-		int retainedIndex = indexOfEntity(previousEntityId);
-		selectedIndex = retainedIndex >= 0 ? retainedIndex : Math.min(previousIndex, entries.size() - 1);
+		int retainedIndex = indexOfGroup(previousKey);
+		selectedIndex = retainedIndex >= 0 ? retainedIndex : Math.min(previousIndex, groups.size() - 1);
 	}
 
 	private boolean hasValidCachedEntry(Minecraft client) {
-		for (PickupEntry entry : entries) {
-			if (isEntryValid(client, entry)) {
+		for (LootGroup group : groups) {
+			if (isGroupRepresentativeValid(client, group)) {
 				return true;
 			}
 		}
@@ -203,16 +206,17 @@ public final class ClientPickupManager {
 		return false;
 	}
 
-	private boolean isEntryValid(Minecraft client, PickupEntry entry) {
+	private boolean isGroupRepresentativeValid(Minecraft client, LootGroup group) {
 		if (client.level == null || client.player == null) {
 			return false;
 		}
 
-		Entity entity = client.level.getEntity(entry.entityId());
+		Entity entity = client.level.getEntity(group.representativeEntityId());
 		return entity instanceof ItemEntity itemEntity
 			&& itemEntity.isAlive()
 			&& !itemEntity.isRemoved()
 			&& !itemEntity.getItem().isEmpty()
+			&& group.key().matches(itemEntity.getItem())
 			&& client.player.distanceToSqr(itemEntity) <= PickupConstants.DEFAULT_PICKUP_RADIUS_SQUARED;
 	}
 
@@ -224,13 +228,17 @@ public final class ClientPickupManager {
 			&& client.getOverlay() == null;
 	}
 
-	private PickupEntry selectedEntry() {
-		return selectedIndex >= 0 && selectedIndex < entries.size() ? entries.get(selectedIndex) : null;
+	private LootGroup selectedGroup() {
+		return selectedIndex >= 0 && selectedIndex < groups.size() ? groups.get(selectedIndex) : null;
 	}
 
-	private int indexOfEntity(int entityId) {
-		for (int index = 0; index < entries.size(); index++) {
-			if (entries.get(index).entityId() == entityId) {
+	private int indexOfGroup(LootGroupKey key) {
+		if (key == null) {
+			return -1;
+		}
+
+		for (int index = 0; index < groups.size(); index++) {
+			if (groups.get(index).key().equals(key)) {
 				return index;
 			}
 		}
@@ -239,8 +247,8 @@ public final class ClientPickupManager {
 	}
 
 	private void moveSelection(int amount) {
-		if (!entries.isEmpty()) {
-			selectedIndex = Math.floorMod(selectedIndex + amount, entries.size());
+		if (!groups.isEmpty()) {
+			selectedIndex = Math.floorMod(selectedIndex + amount, groups.size());
 		}
 	}
 }

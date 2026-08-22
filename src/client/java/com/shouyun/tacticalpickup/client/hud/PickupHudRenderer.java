@@ -1,7 +1,7 @@
 package com.shouyun.tacticalpickup.client.hud;
 
 import com.shouyun.tacticalpickup.client.pickup.ClientPickupManager;
-import com.shouyun.tacticalpickup.client.pickup.PickupEntry;
+import com.shouyun.tacticalpickup.pickup.LootGroup;
 import com.shouyun.tacticalpickup.pickup.PickupConstants;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -26,24 +26,24 @@ public final class PickupHudRenderer {
 	public static void render(GuiGraphics graphics, net.minecraft.client.DeltaTracker deltaTracker) {
 		Minecraft client = Minecraft.getInstance();
 		ClientPickupManager manager = ClientPickupManager.getInstance();
-		List<PickupEntry> entries = manager.entries();
+		List<LootGroup> groups = manager.groups();
 
-		if (client.player == null || client.level == null || client.options.hideGui || entries.isEmpty()) {
+		if (client.player == null || client.level == null || client.options.hideGui || groups.isEmpty()) {
 			return;
 		}
 
 		Font font = client.font;
 		boolean pickupMode = manager.isPickupMode();
-		int visibleCount = Math.min(entries.size(), PickupConstants.MAX_HUD_ENTRIES);
+		int visibleCount = Math.min(groups.size(), PickupConstants.MAX_HUD_ENTRIES);
 		int firstVisible = pickupMode
-			? Math.max(0, Math.min(manager.selectedIndex() - visibleCount / 2, entries.size() - visibleCount))
+			? Math.max(0, Math.min(manager.selectedIndex() - visibleCount / 2, groups.size() - visibleCount))
 			: 0;
-		int hiddenCount = entries.size() - visibleCount;
+		int hiddenCount = groups.size() - visibleCount;
 		int instructionLines = pickupMode ? 3 : 1;
 		int panelHeight = PANEL_PADDING + font.lineHeight + 4 + visibleCount * ROW_HEIGHT
 			+ (hiddenCount > 0 ? font.lineHeight + 2 : 0)
 			+ 4 + instructionLines * (font.lineHeight + 1) + PANEL_PADDING;
-		int panelWidth = calculatePanelWidth(client, entries, firstVisible, visibleCount);
+		int panelWidth = calculatePanelWidth(client, groups, firstVisible, visibleCount);
 		int x = Math.max(8, graphics.guiWidth() - panelWidth - 12);
 		int y = Math.max(8, (graphics.guiHeight() - panelHeight) / 2);
 
@@ -54,13 +54,13 @@ public final class PickupHudRenderer {
 
 		for (int offset = 0; offset < visibleCount; offset++) {
 			int entryIndex = firstVisible + offset;
-			PickupEntry entry = entries.get(entryIndex);
+			LootGroup group = groups.get(entryIndex);
 			if (pickupMode && entryIndex == manager.selectedIndex()) {
 				graphics.fill(x + 2, cursorY - 1, x + panelWidth - 2, cursorY + ROW_HEIGHT - 1, SELECTED_COLOR);
 			}
 
-			graphics.renderItem(entry.itemStack(), x + PANEL_PADDING, cursorY);
-			String label = entry.itemStack().getHoverName().getString() + " ×" + entry.itemStack().getCount();
+			graphics.renderItem(group.displayStack(), x + PANEL_PADDING, cursorY);
+			String label = group.displayStack().getHoverName().getString() + " ×" + group.totalCount();
 			int availableTextWidth = panelWidth - PANEL_PADDING * 3 - ITEM_SIZE;
 			String clippedLabel = font.plainSubstrByWidth(label, availableTextWidth);
 			graphics.drawString(font, clippedLabel, x + PANEL_PADDING * 2 + ITEM_SIZE, cursorY + 4, TEXT_COLOR, true);
@@ -89,13 +89,13 @@ public final class PickupHudRenderer {
 		}
 	}
 
-	private static int calculatePanelWidth(Minecraft client, List<PickupEntry> entries, int firstVisible, int visibleCount) {
+	private static int calculatePanelWidth(Minecraft client, List<LootGroup> groups, int firstVisible, int visibleCount) {
 		Font font = client.font;
 		int width = font.width(Component.translatable("tactical_pickup.hud.title"));
 
 		for (int offset = 0; offset < visibleCount; offset++) {
-			PickupEntry entry = entries.get(firstVisible + offset);
-			String label = entry.itemStack().getHoverName().getString() + " ×" + entry.itemStack().getCount();
+			LootGroup group = groups.get(firstVisible + offset);
+			String label = group.displayStack().getHoverName().getString() + " ×" + group.totalCount();
 			width = Math.max(width, ITEM_SIZE + PANEL_PADDING + font.width(label));
 		}
 

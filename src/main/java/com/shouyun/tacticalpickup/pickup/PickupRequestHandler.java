@@ -1,13 +1,15 @@
 package com.shouyun.tacticalpickup.pickup;
 
 import com.shouyun.tacticalpickup.mixin.ItemEntityAccessor;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.stats.Stats;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.entity.EntityTypeTest;
 
 public final class PickupRequestHandler {
 	private PickupRequestHandler() {
@@ -20,72 +22,53 @@ public final class PickupRequestHandler {
 
 		Entity entity = player.serverLevel().getEntity(entityId);
 
-		if (!(entity instanceof ItemEntity itemEntity)
-				|| itemEntity.isRemoved()
-				|| !itemEntity.isAlive()
-				|| player.distanceToSqr(itemEntity) > PickupConstants.DEFAULT_PICKUP_RADIUS_SQUARED
-				|| itemEntity.hasPickUpDelay()) {
+		if (!(entity instanceof ItemEntity referenceEntity)
+				|| !isEligibleGroupMember(player, referenceEntity, null)
+				|| referenceEntity.hasPickUpDelay()) {
 			return;
 		}
 
-		ItemStack groundStack = itemEntity.getItem();
-		UUID target = ((ItemEntityAccessor) itemEntity).tacticalPickup$getTarget();
+		LootGroupKey groupKey = LootGroupKey.of(referenceEntity.getItem());
+		List<ItemEntity> members = new ArrayList<>(PickupConstants.MAX_SCANNED_ENTITIES);
 
-		if (groundStack.isEmpty()
-				|| groundStack.getCount() <= 0
-				|| (target != null && !target.equals(player.getUUID()))) {
-			return;
-		}
+		player.serverLevel().getEntities(
+			EntityTypeTest.forClass(ItemEntity.class),
+			player.getBoundingBox().inflate(PickupConstants.DEFAULT_PICKUP_RADIUS),
+			itemEntity -> isEligibleGroupMember(player, itemEntity, groupKey),
+			members,
+			PickupConstants.MAX_SCANNED_ENTITIES
+		);
 
-		int originalGroundCount = groundStack.getCount();
-		ItemStack insertionStack = groundStack.copy();
-		Inventory inventory = player.getInventory();
-		int matchingCountBefore = countMatching(inventory, groundStack);
+		members.sort(Comparator
+			.comparingDouble((ItemEntity itemEntity) -> player.distanceToSqr(itemEntity))
+			.thenComparingInt(Entity::getId));
 
-		inventory.add(insertionStack);
+		for (ItemEntity member : members) {
+			// Revalidate each entity independently immediately before its transaction.
+			if (!isEligibleGroupMember(player, member, groupKey) || member.hasPickUpDelay()) {
+				continue;
+			}
 
-		if (player.hasInfiniteMaterials()) {
-			int actualInventoryIncrease = countMatching(inventory, groundStack) - matchingCountBefore;
-
-			// Inventory.add deliberately consumes an uninserted remainder for creative
-			// players. Restore the copy's remainder from the inventory's real increase so
-			// the ground entity is never reduced for items the inventory did not receive.
-			if (actualInventoryIncrease >= 0 && actualInventoryIncrease <= originalGroundCount) {
-				insertionStack.setCount(originalGroundCount - actualInventoryIncrease);
+			if (SingleEntityPickupTransaction.tryPickupSingleEntity(player, member) == 0) {
+				// Remaining members have the same Item + Components, so the inventory
+				// cannot accept any useful amount from them either.
+				break;
 			}
 		}
-
-		int insertedCount = originalGroundCount - insertionStack.getCount();
-
-		if (insertedCount <= 0) {
-			return;
-		}
-
-		player.take(itemEntity, insertedCount);
-
-		int remainingGroundCount = originalGroundCount - insertedCount;
-
-		if (remainingGroundCount == 0) {
-			itemEntity.discard();
-		} else {
-			itemEntity.setItem(groundStack.copyWithCount(remainingGroundCount));
-		}
-
-		player.awardStat(Stats.ITEM_PICKED_UP.get(groundStack.getItem()), insertedCount);
-		player.onItemPickup(itemEntity);
 	}
 
-	private static int countMatching(Inventory inventory, ItemStack referenceStack) {
-		int count = 0;
-
-		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-			ItemStack inventoryStack = inventory.getItem(slot);
-
-			if (ItemStack.isSameItemSameComponents(inventoryStack, referenceStack)) {
-				count += inventoryStack.getCount();
-			}
+	private static boolean isEligibleGroupMember(ServerPlayer player, ItemEntity itemEntity, LootGroupKey groupKey) {
+		if (itemEntity.isRemoved()
+				|| !itemEntity.isAlive()
+				|| player.distanceToSqr(itemEntity) > PickupConstants.DEFAULT_PICKUP_RADIUS_SQUARED) {
+			return false;
 		}
 
-		return count;
+		ItemStack stack = itemEntity.getItem();
+		UUID target = ((ItemEntityAccessor) itemEntity).tacticalPickup$getTarget();
+		return !stack.isEmpty()
+			&& stack.getCount() > 0
+			&& (target == null || target.equals(player.getUUID()))
+			&& (groupKey == null || groupKey.matches(stack));
 	}
 }
