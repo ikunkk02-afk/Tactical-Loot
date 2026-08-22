@@ -23,6 +23,13 @@ fabricApi {
 	configureDataGeneration {
 		client = true
 	}
+
+	configureTests {
+		createSourceSet = true
+		modId = "tactical_pickup_gametest"
+		enableClientGameTests = false
+		eula = true
+	}
 }
 
 dependencies {

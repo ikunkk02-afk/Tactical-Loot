@@ -4,6 +4,7 @@
 	"package": "com.shouyun.tacticalpickup.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"ItemEntityAccessor",
 		"ItemEntityMixin"
 	],
 	"injectors": {
