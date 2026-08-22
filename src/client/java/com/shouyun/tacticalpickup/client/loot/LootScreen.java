@@ -242,6 +242,12 @@ public final class LootScreen extends Screen {
 		}
 	}
 
+	@Override
+	public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+		// This screen draws its own dark backdrop before the widgets. Letting Screen render
+		// the vanilla background here would blur the custom panels that were already drawn.
+	}
+
 	private void renderHeader(GuiGraphics graphics) {
 		Bounds panel = layout.panel();
 		graphics.drawString(font, title, panel.x() + 7, panel.y() + 8, TEXT_COLOR, true);
