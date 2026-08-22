@@ -2,8 +2,8 @@
 	"schemaVersion": 1,
 	"id": "tactical_pickup",
 	"version": "${version}",
-	"name": "Tactical Pickup",
-	"description": "A deliberate, server-authoritative way to pick up nearby dropped items.",
+	"name": "Tactical Loot",
+	"description": "A server-validated HUD and loot interface for selecting and managing nearby dropped items.",
 	"authors": [
 		"寿云"
 	],
@@ -37,8 +37,7 @@
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~1.21.1",
 		"java": ">=21",
-		"fabric-api": ">=0.116.15+1.21.1",
-		"cloth-config": ">=15.0.140"
+		"fabric-api": ">=0.116.15+1.21.1"
 	},
 	"suggests": {
 		"modmenu": ">=11.0.4"

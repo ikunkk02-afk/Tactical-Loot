@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "tactical_pickup_gametest",
 	"version": "1.0.0",
-	"name": "Tactical Pickup Game Tests",
+	"name": "Tactical Loot Game Tests",
 	"environment": "server",
 	"entrypoints": {
 		"fabric-gametest": [

@@ -1,70 +1,129 @@
-# Tactical Pickup
+# Tactical Loot
 
-Tactical Pickup 是一个面向 Minecraft 1.21.1 Fabric 的早期开发模组，使用 Java 21 和 Mojang Official Mappings。
+> Tactical Loot（战术拾取）是一个重新设计 Minecraft 地面掉落物拾取体验的 Fabric 模组。它将附近掉落物整理为可查看、选择和管理的战利品，让玩家能够快速拾取、指定背包槽位，或将背包物品重新丢回世界。
 
-## 环境与依赖
+模组会阻止原版通过碰撞自动吸取地面物品，并提供世界内 HUD 与独立战利品界面。所有拾取和丢弃请求都会由服务端根据实时距离、物品状态、拾取延迟和背包容量重新验证。
 
-- Minecraft 1.21.1
-- Fabric Loader 0.19.3
-- Java 21
-- Fabric API 0.116.15+1.21.1
-- Cloth Config API 15.0.140
-- Mod Menu 11.0.4（可选；未安装时不影响模组运行）
+## 功能
 
-Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量自定义客户端界面；Cloth Config 保留给后续一般设置。Mod Menu 只提供可选入口，不是必装前置。
+### 世界战利品 HUD
 
-## 当前功能
+- 扫描玩家 5 格范围内的地面掉落物，并按物品及其 Data Components 聚合
+- 显示物品图标、名称、总数量、附魔信息和当前操作提示
+- 无需打开背包即可查看并管理附近战利品
 
-- 阻止玩家通过碰撞自动吸取地面物品，不影响物品物理、寿命、漏斗或其他运输方式
-- 按 Vanilla 的 Item + Data Components 语义聚合附近相同掉落物；Stack Count 不参与分组身份
-- HUD 使用深色 Vanilla+ Tooltip 面板显示当前 Loot Group 的真实物品名称、图标和附近总数量，并用额外组数提示保持画面简洁；按 F 后展开当前选择、数量、附魔与操作信息
-- 选中附魔物品时显示最多 5 条 Vanilla 本地化附魔详情，并支持附魔书的 Stored Enchantments
-- 附近有物品时按 F 进入拾取模式，并屏蔽本次原版副手交换
-- 拾取模式中使用滚轮按 Group 循环选择，不改变快捷栏槽位
-- 每个新 Group 默认拾取全部；Shift + 滚轮按 1 调整数量，Ctrl + Shift + 滚轮按 16 快速调整
-- 按 F 拾取选中数量；客户端只发送代表 ItemEntity ID 和数量上限，ALL 使用明确的 0 协议值
-- 服务端根据真实代表 Stack 重新扫描并验证 Group，不信任客户端缓存、请求数量或成员列表
-- 每个成员分别验证距离、owner 和 pickup delay，并复用安全库存事务逐个拾取
-- 指定数量可以跨多个 ItemEntity；背包容量不足时只扣除实际插入数量，继续保证物品守恒
-- 按 ESC 退出拾取模式；再次按 ESC 恢复原版暂停行为
-- 受到实际伤害、死亡、离开范围、切换维度或断开连接时退出并清理状态
-- 所有物品默认是 Normal；拾取模式中按 X 可按 Normal → Low Priority → Hidden → Normal 循环当前物品的过滤状态
-- Low Priority 仍显示、可选择、可调整数量并正常拾取，但始终排在所有 Normal Group 后，并在 HUD 中使用较弱提示
-- Hidden 完全不进入 Tactical Pickup HUD、滚轮选择和 F 上下文；若附近只有 Hidden 物品，F 保持原版主副手交换
-- 过滤身份是 Item Registry ID，而不是 LootGroupKey；普通、附魔和不同耐久度的同种物品共享过滤状态
-- 按 O 打开过滤管理；空搜索管理已有规则，输入名称或 Item ID 可查找已安装物品并直接降低优先级或屏蔽，也可恢复 Hidden 项和确认后全部恢复 Normal
-- 过滤规则持久化在 `config/tactical_pickup_filters.json`，跨世界和服务器沿用；移除模组后其 Item ID 规则仍会保留
-- Hidden 只影响 Tactical Pickup 的客户端显示与选择，不删除 ItemEntity，也不干涉水流、漏斗、五分钟寿命或其他模组系统
-- 安装 Mod Menu 后可从 `Mods → Tactical Pickup → Config` 打开同一过滤管理界面；不安装时 O 入口及全部功能仍可用
-- 按 H 主动打开不会暂停游戏的紧凑型战利品界面；默认尺寸为 420×240 GUI 逻辑像素，F 仍是默认快速拾取方式
-- 玩家主背包位于左侧并按 Vanilla 的 3×9 主背包 + 1×9 Hotbar 排列；附近战利品位于右侧并使用响应式 4–6 列可滚动深色 Slot Grid，底部为全宽详情与数量操作区
-- 单击 Loot Slot 只会选中并显示总量、过滤状态与最多 5 条附魔；Vanilla Item Tooltip 继续提供完整 Components、耐久、药水和模组物品信息
-- Shift + 鼠标右键 Loot Slot 会通过现有安全拾取协议快速拾取整个 Group；普通右键不会触发拾取
-- 按住 Loot Slot 移动超过 5 GUI 像素并松到某个具体背包格，只尝试该格；不兼容、已满或落在槽外时取消，不自动换位
-- 按住非空背包格拖到右侧附近战利品区域，会通过服务端原版丢弃行为将整个 Stack 丢到世界，并保留全部 Data Components 与 Pickup Delay
-- 详情区“拾取”按钮继续使用 ALL/指定数量的通用拾取；定向拖放使用独立协议且绝不调用会搜索其他槽的 `Inventory.add`
-- Loot Screen 不是 Container：单击背包格不会拿起 Cursor Stack，所有拾取与丢弃都由服务器重新验证并同步
-- HIDDEN 不进入 Loot Screen，LOW_PRIORITY 继续显示但排在全部 Normal 后；完整过滤管理仍由 O 打开
-- 战利品 Slot 只随服务端同步后的下一次扫描更新；拖放不会直接修改客户端 Inventory 或 ItemEntity
-- 受到实际伤害、死亡、切换维度或断开连接时 Loot Screen 会立即关闭并清理临时拖动状态
+### 战利品选择与数量控制
+
+- 使用原版“切换副手”按键进入拾取模式并确认拾取，默认按键为 `F`
+- 使用滚轮循环选择战利品
+- 使用 `Shift + 滚轮` 按 1 调整数量，使用 `Ctrl + Shift + 滚轮` 按 16 调整数量
+- 支持跨多个相同掉落物实体按指定数量拾取；背包空间不足时只移除实际放入背包的数量
+
+### 战术拾取界面
+
+- 默认按 `H` 打开不会暂停游戏的战利品界面
+- 常规布局左侧显示玩家主背包和快捷栏，右侧显示附近战利品
+- 支持按本地化名称或物品 ID 搜索、查看详情、调整数量和滚动浏览
+- 使用深色 Minecraft 风格界面，并包含克制的打开、关闭、悬停、切换和拾取反馈动画
+
+### 快速拾取、指定槽位与丢弃
+
+- 在战利品格上使用 `Shift + 鼠标右键`，快速拾取该组全部物品
+- 将战利品拖到某个背包格，只尝试放入该格；物品不兼容、槽位已满或未落在槽位上时取消操作
+- 将非空背包格拖到附近战利品区域，可把该格的整个物品堆重新丢到世界，并保留 Data Components
+
+### 物品过滤
+
+- 每种物品可设为 `Normal`、`Low Priority` 或 `Hidden`
+- `Low Priority` 仍可见和可拾取，但排列在普通物品之后；`Hidden` 不进入 HUD、拾取选择或战利品界面
+- 默认按 `X` 循环切换当前选中物品的过滤状态，按 `O` 打开过滤管理界面
+- 安装 Mod Menu 后，也可以从模组列表进入同一过滤管理界面
+
+## 操作方式
+
+| 操作 | 默认输入 |
+| --- | --- |
+| 进入拾取模式 / 拾取当前战利品 | `F`（复用原版“切换副手”按键） |
+| 切换战利品 | 拾取模式中滚轮 |
+| 按 1 调整拾取数量 | `Shift + 滚轮` |
+| 按 16 调整拾取数量 | `Ctrl + Shift + 滚轮` |
+| 退出拾取模式 | `Esc` |
+| 切换当前物品过滤状态 | `X` |
+| 打开过滤管理 | `O` |
+| 打开 / 关闭战利品界面 | `H` |
+| 选择战利品并查看详情 | 鼠标左键 |
+| 快速拾取整组战利品 | `Shift + 鼠标右键` |
+| 拾取到指定背包格 | 按住鼠标左键将战利品拖到目标格 |
+| 丢弃一个背包格的物品堆 | 按住鼠标左键将背包物品拖到附近战利品区域 |
+
+`F` 读取的是 Minecraft 原版“切换副手”按键绑定；如果已在控制设置中重新绑定，请使用修改后的按键。`X`、`O` 和 `H` 可在控制设置的“战术拾取”分类中重新绑定。
+
+## 安装
+
+### 环境要求
+
+- Minecraft `1.21.1`
+- Fabric Loader `0.19.3` 或更高版本
+- Fabric API `0.116.15+1.21.1` 或更高的 Minecraft 1.21.1 兼容版本
+- Java `21` 或更高版本
+- Mod Menu `11.0.4` 或更高版本（可选）
+
+### 安装步骤
+
+1. 安装适用于 Minecraft 1.21.1 的 Fabric Loader。
+2. 将 Fabric API 和 Tactical Loot 的正式 JAR 放入游戏实例的 `mods` 目录。
+3. 启动游戏并在模组列表中确认 Tactical Loot 已加载。
+
+多人游戏中，客户端和服务端都需要安装 Tactical Loot 与 Fabric API。
+
+## 使用方法
+
+靠近地面掉落物后，HUD 会显示最接近的可用战利品。按默认 `F` 进入拾取模式，使用滚轮选择目标，需要时调整数量，再按一次拾取。需要集中管理附近物品时，按默认 `H` 打开战利品界面。
+
+Tactical Loot 不会删除或传送被过滤的地面物品。水流、漏斗、物品寿命和其他世界行为仍由 Minecraft 处理。
+
+## 配置
+
+过滤规则保存在客户端配置目录的 `tactical_pickup_filters.json` 中，并跨世界和服务器使用。建议通过默认 `O` 键或 Mod Menu 的配置入口管理规则，不需要手动编辑文件。
+
+当前配置系统只管理物品过滤状态，不提供拾取范围或界面布局设置。
+
+## 兼容性
+
+- 仅提供 Minecraft 1.21.1 的 Fabric 构建，不提供 Forge 或 NeoForge 构建
+- 模组使用客户端与服务端网络协议验证拾取和丢弃操作，因此多人游戏需要两端安装
+- Mod Menu 为可选集成；不安装时不影响按键入口和核心功能
+- 与其他会改写地面物品碰撞拾取或相同输入行为的模组尚未完成全面兼容性验证
+
+## 已知问题
+
+目前没有已确认的严重已知问题。若遇到可复现的问题，请附上 Minecraft、Fabric Loader、Fabric API 和模组版本，以及相关日志。
 
 ## 构建
 
-```powershell
-gradlew.bat clean build
+```bash
+git clone https://github.com/ikunkk02-afk/Tactical-Pickup.git
+cd Tactical-Pickup
+./gradlew build
 ```
 
-开发客户端和专用服务端可分别使用：
+Windows：
 
 ```powershell
-gradlew.bat runClient
-gradlew.bat runServer --args="nogui"
+gradlew.bat build
 ```
 
-## 开发状态
+构建产物位于 `build/libs/`。普通玩家应使用不带 `-sources` 后缀的重映射 JAR。
 
-**Fabric 1.21.1 第一版主要功能已经完成。** 当前版本不包含 Forge 或 NeoForge 支持。
+## 开源许可
 
-## License
+本项目使用 [MIT License](LICENSE)。
 
-MIT
+## 反馈问题
+
+请通过 [GitHub Issues](https://github.com/ikunkk02-afk/Tactical-Pickup/issues) 提交可复现的问题或兼容性反馈。
+
+## Credits
+
+- 开发：寿云
+- 基于 Fabric Loader、Fabric API 与 Minecraft Java Edition 构建

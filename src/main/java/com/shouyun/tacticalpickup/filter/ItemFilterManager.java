@@ -118,7 +118,7 @@ public final class ItemFilterManager {
 			normalized |= addValidIds(config.hiddenItems, hiddenItems, "hiddenItems");
 			if (lowPriorityItems.removeAll(hiddenItems)) {
 				normalized = true;
-				TacticalPickup.LOGGER.warn("Duplicate Tactical Pickup filter entries were resolved in favor of HIDDEN");
+				TacticalPickup.LOGGER.warn("Duplicate Tactical Loot filter entries were resolved in favor of HIDDEN");
 			}
 
 			if (normalized) {
@@ -128,7 +128,7 @@ public final class ItemFilterManager {
 			lowPriorityItems.clear();
 			hiddenItems.clear();
 			TacticalPickup.LOGGER.error(
-				"Could not load Tactical Pickup filters from {}. Using an empty filter configuration.",
+				"Could not load Tactical Loot filters from {}. Using an empty filter configuration.",
 				configPath,
 				exception
 			);
@@ -142,7 +142,7 @@ public final class ItemFilterManager {
 			ResourceLocation itemId = value == null ? null : ResourceLocation.tryParse(value);
 			if (itemId == null) {
 				normalized = true;
-				TacticalPickup.LOGGER.warn("Ignoring invalid item ID '{}' in Tactical Pickup filter field {}", value, fieldName);
+				TacticalPickup.LOGGER.warn("Ignoring invalid item ID '{}' in Tactical Loot filter field {}", value, fieldName);
 				continue;
 			}
 
@@ -174,12 +174,12 @@ public final class ItemFilterManager {
 				Files.move(temporaryPath, configPath, StandardCopyOption.REPLACE_EXISTING);
 			}
 		} catch (IOException exception) {
-			TacticalPickup.LOGGER.error("Could not save Tactical Pickup filters to {}", configPath, exception);
+			TacticalPickup.LOGGER.error("Could not save Tactical Loot filters to {}", configPath, exception);
 		} finally {
 			try {
 				Files.deleteIfExists(temporaryPath);
 			} catch (IOException exception) {
-				TacticalPickup.LOGGER.debug("Could not clean up temporary Tactical Pickup filter file {}", temporaryPath, exception);
+				TacticalPickup.LOGGER.debug("Could not clean up temporary Tactical Loot filter file {}", temporaryPath, exception);
 			}
 		}
 	}
