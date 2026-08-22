@@ -1,102 +1,104 @@
 plugins {
-	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
-	id 'maven-publish'
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
 
-repositories {
-	maven { url = "https://maven.terraformersmc.com/releases/" }
+version = mod_version
+group = mod_group_id
+
+base { archivesName = 'TacticalLoot' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+sourceSets {
+    gameTest {
+        java.srcDir 'src/gametest/java'
+        resources.srcDir 'src/gametest/resources'
+        compileClasspath += sourceSets.main.output + configurations.testCompileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
 }
 
-loom {
-	splitEnvironmentSourceSets()
-
-	mods {
-		"tactical_pickup" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
-		}
-	}
+configurations {
+    gameTestImplementation.extendsFrom implementation
+    gameTestRuntimeOnly.extendsFrom runtimeOnly
 }
 
-fabricApi {
-	configureDataGeneration {
-		client = true
-	}
-
-	configureTests {
-		createSourceSet = true
-		modId = "tactical_pickup_gametest"
-		enableClientGameTests = false
-		eula = true
-	}
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                tactical_pickup {
+                    source sourceSets.main
+                    source sourceSets.gameTest
+                }
+            }
+        }
+        client {}
+        server { args '--nogui' }
+        gameTestServer { property 'forge.enabledGameTestNamespaces', mod_id }
+        data {
+            workingDirectory project.file('run-data')
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
 }
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+repositories { mavenCentral() }
 
 dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings loom.officialMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-	// Fabric APIs used by lifecycle events, networking, rendering, and tests.
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	modCompileOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
-	if (!project.hasProperty("withoutModMenu")) {
-		modLocalRuntime "com.terraformersmc:modmenu:${project.mod_menu_version}"
-	}
-
-	testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
-	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.test {
-	useJUnitPlatform()
+tasks.named('test', Test).configure { useJUnitPlatform() }
+
+tasks.register('syncGameTestStructures', Copy) {
+    from 'gameteststructures'
+    into 'run/gameteststructures'
 }
 
-processResources {
-	def version = project.version
-	inputs.property "version", version
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn tasks.named('syncGameTestStructures')
+}
 
-	filesMatching("fabric.mod.json") {
-		expand "version": version
-	}
+tasks.named('processResources', ProcessResources).configure {
+    def replaceProperties = [minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+        forge_version: forge_version, forge_version_range: forge_version_range,
+        loader_version_range: loader_version_range, mod_id: mod_id, mod_name: mod_name,
+        mod_license: mod_license, mod_version: mod_version, mod_authors: mod_authors,
+        mod_description: mod_description]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) { expand replaceProperties }
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "TacticalLoot-${mod_version}-forge-${minecraft_version}.jar"
+    from('LICENSE') { rename { 'LICENSE_TacticalLoot' } }
+    manifest {
+        attributes(['Specification-Title': mod_id, 'Specification-Vendor': mod_authors,
+            'Specification-Version': '1', 'Implementation-Title': mod_name,
+            'Implementation-Version': mod_version, 'Implementation-Vendor': mod_authors])
+    }
+    finalizedBy 'reobfJar'
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
+    options.encoding = 'UTF-8'
+    options.release = 17
 }
 
-java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
-	withSourcesJar()
-
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+tasks.withType(JavaExec).configureEach {
+    standardInput = System.in
 }
 
-jar {
-	def projectName = project.name
-	inputs.property "projectName", projectName
-
-	from("LICENSE") {
-		rename { "${it}_$projectName"}
-	}
-}
-
-// configure the maven publication
-publishing {
-	publications {
-		create("mavenJava", MavenPublication) {
-			from components.java
-		}
-	}
-
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-	repositories {
-		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
-	}
-}
+java { withSourcesJar() }

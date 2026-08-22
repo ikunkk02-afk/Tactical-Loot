@@ -1,6 +1,5 @@
 package com.shouyun.tacticalpickup.pickup;
 
-import com.shouyun.tacticalpickup.mixin.ItemEntityAccessor;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -52,7 +51,7 @@ final class ServerLootGroupResolver {
 		}
 
 		ItemStack stack = itemEntity.getItem();
-		UUID target = ((ItemEntityAccessor) itemEntity).tacticalPickup$getTarget();
+		UUID target = itemEntity.target;
 		return !stack.isEmpty()
 			&& stack.getCount() > 0
 			&& (target == null || target.equals(player.getUUID()))

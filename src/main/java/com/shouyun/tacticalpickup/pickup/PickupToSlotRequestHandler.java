@@ -22,11 +22,11 @@ public final class PickupToSlotRequestHandler {
 			return;
 		}
 
-		ItemStack referenceStack = group.members().getFirst().getItem();
+		ItemStack referenceStack = group.members().get(0).getItem();
 		ItemStack targetStack = player.getInventory().getItem(targetSlot);
 		if (!targetStack.isEmpty()
-				&& (!ItemStack.isSameItemSameComponents(targetStack, referenceStack)
-					|| targetStack.getCount() >= player.getInventory().getMaxStackSize(referenceStack))) {
+				&& (!ItemStack.isSameItemSameTags(targetStack, referenceStack)
+					|| targetStack.getCount() >= Math.min(player.getInventory().getMaxStackSize(), referenceStack.getMaxStackSize()))) {
 			return;
 		}
 

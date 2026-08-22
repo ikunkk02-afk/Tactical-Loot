@@ -33,7 +33,7 @@ public final class SingleEntityPickupTransaction {
 
 		inventory.add(insertionStack);
 
-		if (player.hasInfiniteMaterials()) {
+		if (player.getAbilities().instabuild) {
 			int actualInventoryIncrease = countMatching(inventory, groundStack) - matchingCountBefore;
 
 			// Inventory.add deliberately consumes an uninserted remainder for creative
@@ -80,11 +80,11 @@ public final class SingleEntityPickupTransaction {
 
 		Inventory inventory = player.getInventory();
 		ItemStack targetStack = inventory.getItem(targetSlot);
-		if (!targetStack.isEmpty() && !ItemStack.isSameItemSameComponents(targetStack, groundStack)) {
+		if (!targetStack.isEmpty() && !ItemStack.isSameItemSameTags(targetStack, groundStack)) {
 			return 0;
 		}
 
-		int slotLimit = inventory.getMaxStackSize(groundStack);
+		int slotLimit = Math.min(inventory.getMaxStackSize(), groundStack.getMaxStackSize());
 		int currentCount = targetStack.isEmpty() ? 0 : targetStack.getCount();
 		int insertedCount = Math.min(Math.min(maxAmount, groundStack.getCount()), slotLimit - currentCount);
 		if (insertedCount <= 0) {
@@ -119,7 +119,7 @@ public final class SingleEntityPickupTransaction {
 		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
 			ItemStack inventoryStack = inventory.getItem(slot);
 
-			if (ItemStack.isSameItemSameComponents(inventoryStack, referenceStack)) {
+			if (ItemStack.isSameItemSameTags(inventoryStack, referenceStack)) {
 				count += inventoryStack.getCount();
 			}
 		}

@@ -2,10 +2,9 @@ package com.shouyun.tacticalpickup.gametest;
 
 import com.shouyun.tacticalpickup.pickup.PickupRequestHandler;
 import java.util.UUID;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
+import com.shouyun.tacticalpickup.TacticalPickup;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -19,24 +18,20 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
-public final class ManualPickupGameTests implements FabricGameTest {
+@GameTestHolder(TacticalPickup.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class ManualPickupGameTests {
 	private static final Vec3 TEST_POSITION = new Vec3(2.0, 2.0, 2.0);
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE, timeoutTicks = 100)
+	@GameTest(template = "empty", timeoutTicks = 100)
 	public void manualPickupConservesItems(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		player.setGameMode(GameType.SURVIVAL);
+		ServerPlayer player = GameTestPlayers.create(helper);
 		player.setPos(helper.absoluteVec(TEST_POSITION));
 
 		testA(helper, player);
@@ -121,36 +116,28 @@ public final class ManualPickupGameTests implements FabricGameTest {
 		assertComponentDifferenceNotMerged(helper, player, damagedInventorySword, damagedGroundSword, "Test I durability");
 
 		ItemStack namedInventoryStack = new ItemStack(Items.IRON_INGOT, 63);
-		namedInventoryStack.set(DataComponents.CUSTOM_NAME, Component.literal("inventory"));
+		namedInventoryStack.setHoverName(Component.literal("inventory"));
 		ItemStack namedGroundStack = new ItemStack(Items.IRON_INGOT, 64);
-		namedGroundStack.set(DataComponents.CUSTOM_NAME, Component.literal("ground"));
+		namedGroundStack.setHoverName(Component.literal("ground"));
 		assertComponentDifferenceNotMerged(helper, player, namedInventoryStack, namedGroundStack, "Test I custom name");
 
-		Holder<Enchantment> sharpness = helper.getLevel()
-				.registryAccess()
-				.registryOrThrow(Registries.ENCHANTMENT)
-				.getHolderOrThrow(Enchantments.SHARPNESS);
 		ItemStack enchantedInventoryStack = new ItemStack(Items.IRON_INGOT, 63);
-		ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-		enchantments.set(sharpness, 1);
-		enchantedInventoryStack.set(DataComponents.ENCHANTMENTS, enchantments.toImmutable());
+		enchantedInventoryStack.enchant(Enchantments.SHARPNESS, 1);
 		ItemStack enchantedGroundStack = new ItemStack(Items.IRON_INGOT, 64);
 		assertComponentDifferenceNotMerged(helper, player, enchantedInventoryStack, enchantedGroundStack, "Test I enchantment");
 
-		Holder<Potion> water = Potions.WATER;
-		Holder<Potion> healing = Potions.HEALING;
-		ItemStack waterPotions = PotionContents.createItemStack(Items.POTION, water);
-		ItemStack healingPotion = PotionContents.createItemStack(Items.POTION, healing);
+		ItemStack waterPotions = PotionUtils.setPotion(new ItemStack(Items.POTION), Potions.WATER);
+		ItemStack healingPotion = PotionUtils.setPotion(new ItemStack(Items.POTION), Potions.HEALING);
 		assertComponentDifferenceNotMerged(helper, player, waterPotions, healingPotion, "Test I potion");
 
 		ItemStack customDataInventoryStack = new ItemStack(Items.IRON_INGOT, 63);
 		CompoundTag inventoryData = new CompoundTag();
 		inventoryData.putString("test", "inventory");
-		customDataInventoryStack.set(DataComponents.CUSTOM_DATA, CustomData.of(inventoryData));
+		customDataInventoryStack.getOrCreateTag().merge(inventoryData);
 		ItemStack customDataGroundStack = new ItemStack(Items.IRON_INGOT, 64);
 		CompoundTag groundData = new CompoundTag();
 		groundData.putString("test", "ground");
-		customDataGroundStack.set(DataComponents.CUSTOM_DATA, CustomData.of(groundData));
+		customDataGroundStack.getOrCreateTag().merge(groundData);
 		assertComponentDifferenceNotMerged(helper, player, customDataInventoryStack, customDataGroundStack, "Test I custom data");
 	}
 
@@ -171,14 +158,14 @@ public final class ManualPickupGameTests implements FabricGameTest {
 	}
 
 	private static void testCreativeMode(GameTestHelper helper, ServerPlayer player) {
-		player.setGameMode(GameType.CREATIVE);
+		player.getAbilities().instabuild = true;
 		fillInventory(player.getInventory());
 		assertPickup(helper, player, new ItemStack(Items.IRON_INGOT, 64), 0, 64, "Creative full inventory");
 
 		fillInventory(player.getInventory());
 		player.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 63));
 		assertPickup(helper, player, new ItemStack(Items.IRON_INGOT, 64), 64, 63, "Creative partial capacity");
-		player.setGameMode(GameType.SURVIVAL);
+		player.getAbilities().instabuild = false;
 	}
 
 	private static void testVanillaCollisionRemainsBlocked(GameTestHelper helper, ServerPlayer player) {

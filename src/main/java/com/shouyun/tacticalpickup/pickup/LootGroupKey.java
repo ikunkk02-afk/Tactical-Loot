@@ -16,7 +16,7 @@ public final class LootGroupKey {
 		}
 
 		this.identityStack = stack.copyWithCount(1);
-		this.hashCode = ItemStack.hashItemAndComponents(this.identityStack);
+		this.hashCode = Objects.hash(this.identityStack.getItem(), this.identityStack.getTag());
 	}
 
 	public static LootGroupKey of(ItemStack stack) {
@@ -24,14 +24,14 @@ public final class LootGroupKey {
 	}
 
 	public boolean matches(ItemStack stack) {
-		return stack != null && ItemStack.isSameItemSameComponents(identityStack, stack);
+		return stack != null && ItemStack.isSameItemSameTags(identityStack, stack);
 	}
 
 	@Override
 	public boolean equals(Object object) {
 		return this == object
 			|| object instanceof LootGroupKey other
-				&& ItemStack.isSameItemSameComponents(identityStack, other.identityStack);
+				&& ItemStack.isSameItemSameTags(identityStack, other.identityStack);
 	}
 
 	@Override

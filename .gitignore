@@ -1,51 +1,25 @@
-# Gradle
-
-.gradle/
-build/
-out/
-classes/
-logs/
-*.log
-
-# Eclipse
-
+# eclipse
+bin
 *.launch
+.settings
+.metadata
 .classpath
 .project
-.settings/
 
-# IntelliJ IDEA
-
-.idea/
-*.iml
+# idea
+out
 *.ipr
 *.iws
+*.iml
+.idea
 
-# Visual Studio Code
+# gradle
+build
+.gradle
 
-.vscode/
-bin/
+# other
+eclipse
+run
 
-# macOS
-
-*.DS_Store
-
-# Fabric / local Minecraft runtime
-
-run/
-crash-reports/
-saves/
-world/
-server.properties
-
-# Java diagnostics
-
-hs_err_*.log
-replay_*.log
-*.hprof
-*.jfr
-
-# Local environment files
-
-.env
-.env.*
+# Files from Forge MDK
+forge*changelog.txt

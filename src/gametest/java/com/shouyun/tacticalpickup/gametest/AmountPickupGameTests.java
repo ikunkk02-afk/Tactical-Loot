@@ -3,7 +3,9 @@ package com.shouyun.tacticalpickup.gametest;
 import com.shouyun.tacticalpickup.network.PickupRequestPayload;
 import com.shouyun.tacticalpickup.pickup.PickupRequestHandler;
 import java.util.List;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import com.shouyun.tacticalpickup.TacticalPickup;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,14 +14,15 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
-public final class AmountPickupGameTests implements FabricGameTest {
+@GameTestHolder(TacticalPickup.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class AmountPickupGameTests {
 	private static final Vec3 PLAYER_POSITION = new Vec3(2.0, 2.0, 2.0);
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountARequestsOne(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ground = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -33,7 +36,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountBRequestsSixteen(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ground = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -47,7 +50,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountCCrossesMultipleEntities(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity first = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 10), 0.25);
@@ -67,7 +70,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountDRequestCannotExceedReality(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ground = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 40), 0.25);
@@ -81,7 +84,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountEZeroMeansAll(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity first = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 10), 0.25);
@@ -97,7 +100,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountFNegativeIsRejected(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ground = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 32), 0.25);
@@ -111,7 +114,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountGPartialCapacityOnlyRemovesInsertedItems(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		fillInventory(player.getInventory());
@@ -128,7 +131,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountHNonStackableItemsRespectLimit(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity first = spawnItem(helper, new ItemStack(Items.DIAMOND_SWORD), 0.25);
@@ -147,7 +150,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void amountIRepeatedRequestsUseCurrentState(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ground = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 25), 0.25);
@@ -173,8 +176,7 @@ public final class AmountPickupGameTests implements FabricGameTest {
 
 	@SuppressWarnings("removal")
 	private static ServerPlayer makePlayer(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		player.setGameMode(GameType.SURVIVAL);
+		ServerPlayer player = GameTestPlayers.create(helper);
 		player.setPos(helper.absoluteVec(PLAYER_POSITION));
 		player.getInventory().clearContent();
 		return player;

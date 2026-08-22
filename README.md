@@ -1,6 +1,6 @@
 # Tactical Loot
 
-> 为 Minecraft 重新设计地面战利品拾取与管理体验的 Fabric 模组。
+> Tactical Loot 的 Minecraft Forge 1.20.1 分支，为 Minecraft 重新设计地面战利品拾取与管理体验。
 
 Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看、选择和管理的战利品。玩家可以通过世界 HUD 快速确认目标，也可以打开独立界面进行精确拾取、指定背包槽位或重新丢弃物品。
 
@@ -12,7 +12,7 @@ Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看�
 
 ### 附近战利品 HUD
 
-- 检测玩家 5 格范围内的掉落物，并按物品及其 Data Components 聚合
+- 检测玩家 5 格范围内的掉落物，并按物品及其完整物品数据聚合
 - 同时显示最多 6 组战利品的图标、名称和数量
 - 为当前目标显示附魔信息、选取数量与操作提示
 - 无需打开背包即可查看和切换附近目标
@@ -36,7 +36,7 @@ Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看�
 
 - 将战利品拖到指定背包格，只尝试放入该格
 - 当物品不兼容、槽位已满或拖拽未落入有效槽位时取消操作
-- 将非空背包格拖到附近战利品区域，可以把该格物品重新丢到世界，并保留 Data Components
+- 将非空背包格拖到附近战利品区域，可以把该格物品重新丢到世界，并保留名称、耐久、附魔、药水、NBT 与 Forge capability 数据
 
 ### 物品过滤
 
@@ -47,7 +47,7 @@ Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看�
 
 ### UI 自定义
 
-- 默认按 `U` 打开 Tactical Loot 设置，也可从 Mod Menu 的配置按钮进入
+- 默认按 `U` 打开 Tactical Loot 设置，也可从 Forge 模组列表的配置按钮进入
 - 战利品 HUD 与大型战术拾取界面使用相互独立的编辑器和配置
 - 鼠标左键拖动位置；鼠标悬停在预览上时使用滚轮调整大小
 - HUD 缩放范围为 `60%`～`160%`，大型界面缩放范围为 `75%`～`135%`
@@ -90,19 +90,18 @@ Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看�
 
 ## 安装要求
 
-- Minecraft `1.21.1`
-- Fabric Loader `0.19.3` 或更高版本
-- Fabric API `0.116.15+1.21.1` 或更高的 Minecraft 1.21.1 兼容版本
-- Java `21` 或更高版本
-- Mod Menu `11.0.4` 或更高版本（可选）
+- Minecraft `1.20.1`
+- Minecraft Forge `47.4.23`
+- Java `17` 或更高版本
+- 无其他运行依赖
 
 ## 安装方法
 
-1. 安装适用于 Minecraft 1.21.1 的 Fabric Loader。
-2. 将 Fabric API 与 Tactical Loot `1.0.1` 正式 JAR 放入游戏实例的 `mods` 目录。
+1. 安装 Minecraft 1.20.1 的 Forge 47.4.23。
+2. 将 Tactical Loot `1.0.1` Forge 正式 JAR 放入游戏实例的 `mods` 目录。
 3. 启动游戏，并在模组列表中确认 Tactical Loot 已加载。
 
-多人游戏中，客户端和服务端都需要安装 Tactical Loot 与 Fabric API。
+多人游戏中，客户端和服务端都需要安装相同版本的 Tactical Loot。
 
 ## 使用方法
 
@@ -112,9 +111,9 @@ Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看�
 
 ## 兼容性
 
-- 当前仅提供 Minecraft 1.21.1 的 Fabric 构建，不提供 Forge 或 NeoForge 构建
+- 此分支提供 Minecraft 1.20.1 Forge 47.4.23 构建
 - 模组使用客户端与服务端网络协议验证拾取和丢弃操作，因此多人游戏需要两端安装
-- Mod Menu 是可选集成；不安装时仍可使用按键入口和全部核心功能
+- Forge 模组列表提供配置入口；也可随时使用默认 `U` 按键进入设置
 - 尚未全面验证与其他改写地面物品碰撞拾取或相同输入行为的模组之间的兼容性
 
 ## 配置文件
@@ -140,11 +139,11 @@ Windows：
 gradlew.bat build
 ```
 
-构建产物位于 `build/libs/`。普通玩家应使用不带 `-sources` 后缀的重映射 JAR。
+构建产物位于 `build/libs/`。普通玩家应使用 `TacticalLoot-1.0.1-forge-1.20.1.jar`，不要使用 `-sources` JAR。
 
 ## 已知问题
 
-目前没有已确认的严重已知问题。若遇到可复现的问题，请附上 Minecraft、Fabric Loader、Fabric API 与模组版本，以及相关日志。
+目前没有已确认的严重已知问题。若遇到可复现的问题，请附上 Minecraft、Forge、Java 与模组版本，以及相关日志。
 
 ## 问题反馈
 
@@ -157,4 +156,4 @@ gradlew.bat build
 ## Credits
 
 - 开发：寿云
-- 基于 Fabric Loader、Fabric API 与 Minecraft Java Edition 构建
+- 基于 Minecraft Forge 与 Minecraft Java Edition 构建

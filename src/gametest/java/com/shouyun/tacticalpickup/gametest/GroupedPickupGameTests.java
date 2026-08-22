@@ -6,10 +6,9 @@ import com.shouyun.tacticalpickup.pickup.LootGroupMember;
 import com.shouyun.tacticalpickup.pickup.PickupRequestHandler;
 import java.util.List;
 import java.util.UUID;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
+import com.shouyun.tacticalpickup.TacticalPickup;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -19,19 +18,18 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
-public final class GroupedPickupGameTests implements FabricGameTest {
+@GameTestHolder(TacticalPickup.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class GroupedPickupGameTests {
 	private static final Vec3 PLAYER_POSITION = new Vec3(2.0, 2.0, 2.0);
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupAOrdinaryAggregation(GameTestHelper helper) {
 		List<LootGroup> groups = group(
 			new ItemStack(Items.IRON_INGOT, 10),
@@ -39,11 +37,11 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 			new ItemStack(Items.IRON_INGOT, 4)
 		);
 		assertEquals(helper, groups.size(), 1, "Group A count");
-		assertEquals(helper, groups.getFirst().totalCount(), 29, "Group A total");
+		assertEquals(helper, groups.get(0).totalCount(), 29, "Group A total");
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupBMultipleGroups(GameTestHelper helper) {
 		List<LootGroup> groups = group(
 			new ItemStack(Items.IRON_INGOT, 10),
@@ -58,7 +56,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupCCustomNamesStaySeparate(GameTestHelper helper) {
 		ItemStack first = namedIron("A", 10);
 		ItemStack second = namedIron("B", 10);
@@ -66,7 +64,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupDDamageStaysSeparate(GameTestHelper helper) {
 		ItemStack first = new ItemStack(Items.DIAMOND_SWORD);
 		first.setDamageValue(20);
@@ -76,7 +74,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupEEnchantmentsStaySeparate(GameTestHelper helper) {
 		ItemStack sharpness = enchantedIron(helper, Enchantments.SHARPNESS);
 		ItemStack unbreaking = enchantedIron(helper, Enchantments.UNBREAKING);
@@ -84,15 +82,15 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupFPotionsStaySeparate(GameTestHelper helper) {
-		ItemStack healing = PotionContents.createItemStack(Items.POTION, Potions.HEALING);
-		ItemStack strength = PotionContents.createItemStack(Items.POTION, Potions.STRENGTH);
+		ItemStack healing = PotionUtils.setPotion(new ItemStack(Items.POTION), Potions.HEALING);
+		ItemStack strength = PotionUtils.setPotion(new ItemStack(Items.POTION), Potions.STRENGTH);
 		assertEquals(helper, group(healing, strength).size(), 2, "Group F potions");
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupGCustomDataStaysSeparate(GameTestHelper helper) {
 		ItemStack first = customDataIron("A", 10);
 		ItemStack second = customDataIron("B", 10);
@@ -101,13 +99,13 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupHPicksUpEntireGroup(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		List<ItemEntity> entities = spawnGroup(helper, 10, 15, 4);
 		int before = matchingInventoryCount(player.getInventory(), new ItemStack(Items.IRON_INGOT)) + groundCount(entities);
 
-		PickupRequestHandler.handle(player, entities.getFirst().getId());
+		PickupRequestHandler.handle(player, entities.get(0).getId());
 
 		assertEquals(helper, matchingInventoryCount(player.getInventory(), new ItemStack(Items.IRON_INGOT)), 29, "Group H inventory");
 		assertEquals(helper, groundCount(entities), 0, "Group H ground");
@@ -116,7 +114,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupIPartialCapacityConservesItems(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		fillInventory(player.getInventory());
@@ -125,7 +123,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		int inventoryBefore = matchingInventoryCount(player.getInventory(), new ItemStack(Items.IRON_INGOT));
 		int before = inventoryBefore + groundCount(entities);
 
-		PickupRequestHandler.handle(player, entities.getFirst().getId());
+		PickupRequestHandler.handle(player, entities.get(0).getId());
 
 		int inventoryAfter = matchingInventoryCount(player.getInventory(), new ItemStack(Items.IRON_INGOT));
 		assertEquals(helper, inventoryAfter - inventoryBefore, 20, "Group I inserted");
@@ -135,13 +133,13 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupJFullInventoryChangesNothing(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		fillInventory(player.getInventory());
 		List<ItemEntity> entities = spawnGroup(helper, 64, 64, 32);
 
-		PickupRequestHandler.handle(player, entities.getFirst().getId());
+		PickupRequestHandler.handle(player, entities.get(0).getId());
 
 		assertEquals(helper, matchingInventoryCount(player.getInventory(), new ItemStack(Items.IRON_INGOT)), 0, "Group J inventory");
 		assertEquals(helper, groundCount(entities), 160, "Group J ground");
@@ -149,7 +147,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupKOnlyMatchingComponentsArePickedUp(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ordinary = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 20), 0.2);
@@ -165,7 +163,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupLPickupDelayIsCheckedPerMember(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity ready = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 10), 0.2);
@@ -180,7 +178,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupMOwnerIsCheckedPerMember(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		ItemEntity allowed = spawnItem(helper, new ItemStack(Items.IRON_INGOT, 10), 0.2);
@@ -195,14 +193,14 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 	}
 
 	@SuppressWarnings("removal")
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupNRepeatedRequestsRemainConservative(GameTestHelper helper) {
 		ServerPlayer player = makePlayer(helper);
 		List<ItemEntity> entities = spawnGroup(helper, 10, 15, 4);
 		int before = groundCount(entities);
 
 		for (int request = 0; request < 10; request++) {
-			PickupRequestHandler.handle(player, entities.getFirst().getId());
+			PickupRequestHandler.handle(player, entities.get(0).getId());
 		}
 
 		int inventory = matchingInventoryCount(player.getInventory(), new ItemStack(Items.IRON_INGOT));
@@ -212,7 +210,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void identicalNonStackableItemsAggregate(GameTestHelper helper) {
 		List<LootGroup> groups = group(
 			new ItemStack(Items.DIAMOND_SWORD),
@@ -220,30 +218,30 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 			new ItemStack(Items.DIAMOND_SWORD)
 		);
 		assertEquals(helper, groups.size(), 1, "Non-stackable group count");
-		assertEquals(helper, groups.getFirst().totalCount(), 3, "Non-stackable total");
+		assertEquals(helper, groups.get(0).totalCount(), 3, "Non-stackable total");
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupTotalsAreNotClampedToStackSize(GameTestHelper helper) {
 		List<LootGroup> groups = group(
 			new ItemStack(Items.IRON_INGOT, 64),
 			new ItemStack(Items.IRON_INGOT, 64),
 			new ItemStack(Items.IRON_INGOT, 64)
 		);
-		assertEquals(helper, groups.getFirst().totalCount(), 192, "Large group total");
+		assertEquals(helper, groups.get(0).totalCount(), 192, "Large group total");
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void groupIdentitySurvivesCountAndRepresentativeChanges(GameTestHelper helper) {
 		LootGroup first = LootGroupAggregator.group(List.of(
 			new LootGroupMember(100, new ItemStack(Items.IRON_INGOT, 20), 1.0),
 			new LootGroupMember(101, new ItemStack(Items.IRON_INGOT, 20), 2.0)
-		)).getFirst();
+		)).get(0);
 		LootGroup merged = LootGroupAggregator.group(List.of(
 			new LootGroupMember(200, new ItemStack(Items.IRON_INGOT, 40), 1.5)
-		)).getFirst();
+		)).get(0);
 
 		helper.assertTrue(first.key().equals(merged.key()), "Group identity must ignore count and representative entity ID");
 		assertEquals(helper, first.totalCount(), merged.totalCount(), "Merged group total");
@@ -268,7 +266,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 
 	private static ItemStack namedIron(String name, int count) {
 		ItemStack stack = new ItemStack(Items.IRON_INGOT, count);
-		stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+		stack.setHoverName(Component.literal(name));
 		return stack;
 	}
 
@@ -276,26 +274,19 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		ItemStack stack = new ItemStack(Items.IRON_INGOT, count);
 		CompoundTag data = new CompoundTag();
 		data.putString("group", value);
-		stack.set(DataComponents.CUSTOM_DATA, CustomData.of(data));
+		stack.getOrCreateTag().merge(data);
 		return stack;
 	}
 
-	private static ItemStack enchantedIron(GameTestHelper helper, net.minecraft.resources.ResourceKey<Enchantment> enchantmentKey) {
-		Holder<Enchantment> enchantment = helper.getLevel()
-			.registryAccess()
-			.registryOrThrow(Registries.ENCHANTMENT)
-			.getHolderOrThrow(enchantmentKey);
-		ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-		enchantments.set(enchantment, 1);
+	private static ItemStack enchantedIron(GameTestHelper helper, Enchantment enchantment) {
 		ItemStack stack = new ItemStack(Items.IRON_INGOT);
-		stack.set(DataComponents.ENCHANTMENTS, enchantments.toImmutable());
+		stack.enchant(enchantment, 1);
 		return stack;
 	}
 
 	@SuppressWarnings("removal")
 	private static ServerPlayer makePlayer(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		player.setGameMode(GameType.SURVIVAL);
+		ServerPlayer player = GameTestPlayers.create(helper);
 		player.setPos(helper.absoluteVec(PLAYER_POSITION));
 		player.getInventory().clearContent();
 		return player;
@@ -334,7 +325,7 @@ public final class GroupedPickupGameTests implements FabricGameTest {
 		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
 			ItemStack stack = inventory.getItem(slot);
 
-			if (ItemStack.isSameItemSameComponents(stack, reference)) {
+			if (ItemStack.isSameItemSameTags(stack, reference)) {
 				count += stack.getCount();
 			}
 		}

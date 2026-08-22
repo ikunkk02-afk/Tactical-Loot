@@ -6,15 +6,19 @@ import com.shouyun.tacticalpickup.pickup.LootGroup;
 import com.shouyun.tacticalpickup.pickup.LootGroupAggregator;
 import com.shouyun.tacticalpickup.pickup.LootGroupMember;
 import java.util.List;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
+import com.shouyun.tacticalpickup.TacticalPickup;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-public final class FilterGameTests implements FabricGameTest {
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+@GameTestHolder(TacticalPickup.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class FilterGameTests {
+	@GameTest(template = "empty")
 	public void filterCSameItemIdSharesStateAcrossComponents(GameTestHelper helper) {
 		ItemStack ordinarySword = new ItemStack(Items.DIAMOND_SWORD);
 		ItemStack damagedSword = new ItemStack(Items.DIAMOND_SWORD);
@@ -23,7 +27,7 @@ public final class FilterGameTests implements FabricGameTest {
 			new LootGroupMember(1, ordinarySword, 1.0D),
 			new LootGroupMember(2, damagedSword, 2.0D)
 		));
-		ResourceLocation diamondSwordId = LootGroupFilter.itemId(groups.getFirst());
+		ResourceLocation diamondSwordId = LootGroupFilter.itemId(groups.get(0));
 		List<LootGroup> visible = LootGroupFilter.apply(groups, itemId ->
 			itemId.equals(diamondSwordId) ? ItemFilterState.LOW_PRIORITY : ItemFilterState.NORMAL
 		);
@@ -37,7 +41,7 @@ public final class FilterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void filterDHiddenGroupsAreExcluded(GameTestHelper helper) {
 		List<LootGroup> groups = groupedMembers(
 			new LootGroupMember(1, new ItemStack(Items.ROTTEN_FLESH), 1.0D),
@@ -52,11 +56,11 @@ public final class FilterGameTests implements FabricGameTest {
 		);
 
 		helper.assertTrue(visible.size() == 1, "HIDDEN must not enter visible groups");
-		helper.assertTrue(visible.getFirst().displayStack().is(Items.IRON_INGOT), "Normal iron must remain visible");
+		helper.assertTrue(visible.get(0).displayStack().is(Items.IRON_INGOT), "Normal iron must remain visible");
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void filterELowPriorityAlwaysFollowsNormal(GameTestHelper helper) {
 		List<LootGroup> groups = groupedMembers(
 			new LootGroupMember(1, new ItemStack(Items.ROTTEN_FLESH), 1.0D),
@@ -71,12 +75,12 @@ public final class FilterGameTests implements FabricGameTest {
 			itemId.equals(lowId) ? ItemFilterState.LOW_PRIORITY : ItemFilterState.NORMAL
 		);
 
-		helper.assertTrue(visible.getFirst().displayStack().is(Items.DIAMOND), "Distant NORMAL must precede nearby LOW_PRIORITY");
-		helper.assertTrue(visible.getLast().displayStack().is(Items.ROTTEN_FLESH), "LOW_PRIORITY must be after all NORMAL groups");
+		helper.assertTrue(visible.get(0).displayStack().is(Items.DIAMOND), "Distant NORMAL must precede nearby LOW_PRIORITY");
+		helper.assertTrue(visible.get(visible.size() - 1).displayStack().is(Items.ROTTEN_FLESH), "LOW_PRIORITY must be after all NORMAL groups");
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void filterFSamePriorityUsesDistanceThenEntityId(GameTestHelper helper) {
 		List<LootGroup> groups = groupedMembers(
 			new LootGroupMember(30, new ItemStack(Items.COBBLESTONE), 9.0D),

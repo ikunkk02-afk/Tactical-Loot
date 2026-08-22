@@ -2,10 +2,10 @@ package com.shouyun.tacticalpickup.pickup;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
+import com.shouyun.tacticalpickup.TacticalPickup;
+import com.shouyun.tacticalpickup.gametest.GameTestPlayers;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -15,18 +15,16 @@ import net.minecraft.stats.Stats;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.Vec3;
 
-public final class InventoryDropGameTests implements FabricGameTest {
+@GameTestHolder(TacticalPickup.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class InventoryDropGameTests {
 	private static final Vec3 TEST_POSITION = new Vec3(2.0, 2.0, 2.0);
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropAFullStackMovesFromInventoryToWorld(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		player.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 64));
@@ -37,54 +35,48 @@ public final class InventoryDropGameTests implements FabricGameTest {
 		helper.assertTrue(dropped == 64, "Drop A returned count");
 		helper.assertTrue(player.getInventory().getItem(0).isEmpty(), "Drop A source slot must be empty");
 		helper.assertTrue(groundCount(entities) == 64, "Drop A world count");
-		helper.assertTrue(entities.size() == 1 && entities.getFirst().hasPickUpDelay(), "Drop A must preserve Vanilla pickup delay");
+		helper.assertTrue(entities.size() == 1 && entities.get(0).hasPickUpDelay(), "Drop A must preserve Vanilla pickup delay");
 		cleanup(entities);
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropBEnchantmentComponentsArePreserved(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
-		Holder<Enchantment> sharpness = helper.getLevel()
-			.registryAccess()
-			.registryOrThrow(Registries.ENCHANTMENT)
-			.getHolderOrThrow(Enchantments.SHARPNESS);
 		ItemStack sword = new ItemStack(Items.DIAMOND_SWORD);
-		ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-		enchantments.set(sharpness, 5);
-		sword.set(DataComponents.ENCHANTMENTS, enchantments.toImmutable());
+		sword.enchant(Enchantments.SHARPNESS, 5);
 		player.getInventory().setItem(5, sword.copy());
 
 		InventoryDropTransaction.tryDrop(player, 5, 0);
 		List<ItemEntity> entities = droppedEntities(player);
 
 		helper.assertTrue(entities.size() == 1, "Drop B must spawn exactly one entity");
-		helper.assertTrue(ItemStack.isSameItemSameComponents(sword, entities.getFirst().getItem()), "Drop B enchantments must match");
+		helper.assertTrue(ItemStack.isSameItemSameTags(sword, entities.get(0).getItem()), "Drop B enchantments must match");
 		cleanup(entities);
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropCCustomNameDamageAndCustomDataArePreserved(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemStack sword = new ItemStack(Items.DIAMOND_SWORD);
 		sword.setDamageValue(17);
-		sword.set(DataComponents.CUSTOM_NAME, Component.literal("field blade"));
+		sword.setHoverName(Component.literal("field blade"));
 		CompoundTag tag = new CompoundTag();
 		tag.putString("tactical", "preserved");
-		sword.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+		sword.getOrCreateTag().merge(tag);
 		player.getInventory().setItem(5, sword.copy());
 
 		InventoryDropTransaction.tryDrop(player, 5, 0);
 		List<ItemEntity> entities = droppedEntities(player);
 
 		helper.assertTrue(entities.size() == 1, "Drop C must spawn exactly one entity");
-		helper.assertTrue(ItemStack.isSameItemSameComponents(sword, entities.getFirst().getItem()), "Drop C components must match");
+		helper.assertTrue(ItemStack.isSameItemSameTags(sword, entities.get(0).getItem()), "Drop C components must match");
 		cleanup(entities);
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropDInvalidSourceSlotsAreRejected(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		player.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 64));
@@ -98,7 +90,7 @@ public final class InventoryDropGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropEEmptySourceSlotIsRejected(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 
@@ -109,7 +101,7 @@ public final class InventoryDropGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropFRepeatedRequestsCannotDuplicate(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		player.getInventory().setItem(8, new ItemStack(Items.ROTTEN_FLESH, 64));
@@ -126,7 +118,7 @@ public final class InventoryDropGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void dropGConservationAndSpawnFailureRollback(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		player.getInventory().setItem(11, new ItemStack(Items.IRON_INGOT, 32));
@@ -156,8 +148,7 @@ public final class InventoryDropGameTests implements FabricGameTest {
 	}
 
 	private static ServerPlayer player(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		player.setGameMode(GameType.SURVIVAL);
+		ServerPlayer player = GameTestPlayers.create(helper);
 		player.setPos(helper.absoluteVec(TEST_POSITION));
 		player.getInventory().clearContent();
 		return player;

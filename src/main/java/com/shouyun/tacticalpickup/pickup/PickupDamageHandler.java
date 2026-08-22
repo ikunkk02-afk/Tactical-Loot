@@ -1,31 +1,31 @@
 package com.shouyun.tacticalpickup.pickup;
 
 import com.shouyun.tacticalpickup.network.ExitPickupModePayload;
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import com.shouyun.tacticalpickup.network.PickupNetworking;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public final class PickupDamageHandler {
 	private PickupDamageHandler() {
 	}
 
-	public static void register() {
-		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
-			if (entity instanceof ServerPlayer player && !blocked && damageTaken > 0.0F) {
-				sendExit(player);
-			}
-		});
+	@SubscribeEvent
+	public static void afterDamage(LivingDamageEvent event) {
+		if (event.getEntity() instanceof ServerPlayer player && event.getAmount() > 0.0F) {
+			sendExit(player);
+		}
+	}
 
-		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-			if (entity instanceof ServerPlayer player) {
-				sendExit(player);
-			}
-		});
+	@SubscribeEvent
+	public static void afterDeath(LivingDeathEvent event) {
+		if (event.getEntity() instanceof ServerPlayer player) {
+			sendExit(player);
+		}
 	}
 
 	private static void sendExit(ServerPlayer player) {
-		if (ServerPlayNetworking.canSend(player, ExitPickupModePayload.TYPE)) {
-			ServerPlayNetworking.send(player, ExitPickupModePayload.INSTANCE);
-		}
+		PickupNetworking.sendExit(player);
 	}
 }

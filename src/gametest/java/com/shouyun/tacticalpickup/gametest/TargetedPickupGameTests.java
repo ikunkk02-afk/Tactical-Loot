@@ -1,8 +1,9 @@
 package com.shouyun.tacticalpickup.gametest;
 
 import com.shouyun.tacticalpickup.pickup.PickupToSlotRequestHandler;
-import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
-import net.minecraft.core.component.DataComponents;
+import com.shouyun.tacticalpickup.TacticalPickup;
+import net.minecraftforge.gametest.GameTestHolder;
+import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
@@ -10,13 +11,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
-public final class TargetedPickupGameTests implements FabricGameTest {
+@GameTestHolder(TacticalPickup.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class TargetedPickupGameTests {
 	private static final Vec3 TEST_POSITION = new Vec3(2.0, 2.0, 2.0);
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotAEmptyTargetAcceptsFullStack(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemEntity ground = spawn(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -28,7 +30,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotBMatchingTargetOnlyAcceptsRemainingCapacity(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		player.getInventory().setItem(17, new ItemStack(Items.IRON_INGOT, 63));
@@ -42,7 +44,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotCIncompatibleTargetRejectsWithoutMutation(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		player.getInventory().setItem(17, new ItemStack(Items.DIAMOND));
@@ -57,7 +59,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotDGroupedGroundNeverOverflowsOneSlot(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemEntity first = spawn(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -73,7 +75,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotECustomAmountUsesRequestedMaximum(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemEntity ground = spawn(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -86,11 +88,11 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotFDifferentComponentsDoNotMerge(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemStack named = new ItemStack(Items.IRON_INGOT, 63);
-		named.set(DataComponents.CUSTOM_NAME, Component.literal("named"));
+		named.setHoverName(Component.literal("named"));
 		player.getInventory().setItem(17, named);
 		ItemEntity ground = spawn(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
 
@@ -102,7 +104,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotGInvalidIndicesAreRejected(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemEntity ground = spawn(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -117,7 +119,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = FabricGameTest.EMPTY_STRUCTURE)
+	@GameTest(template = "empty")
 	public void slotHRepeatedRequestsCannotDuplicate(GameTestHelper helper) {
 		ServerPlayer player = player(helper);
 		ItemEntity ground = spawn(helper, new ItemStack(Items.IRON_INGOT, 64), 0.25);
@@ -133,8 +135,7 @@ public final class TargetedPickupGameTests implements FabricGameTest {
 	}
 
 	private static ServerPlayer player(GameTestHelper helper) {
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
-		player.setGameMode(GameType.SURVIVAL);
+		ServerPlayer player = GameTestPlayers.create(helper);
 		player.setPos(helper.absoluteVec(TEST_POSITION));
 		player.getInventory().clearContent();
 		return player;
