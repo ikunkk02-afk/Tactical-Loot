@@ -13,7 +13,7 @@ public final class PickupNetworking {
 		PayloadTypeRegistry.playS2C().register(ExitPickupModePayload.TYPE, ExitPickupModePayload.STREAM_CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(PickupRequestPayload.TYPE, (payload, context) ->
-			PickupRequestHandler.handle(context.player(), payload.entityId())
+			PickupRequestHandler.handle(context.player(), payload.entityId(), payload.requestedAmount())
 		);
 	}
 }

@@ -6,6 +6,7 @@
 	"environment": "server",
 	"entrypoints": {
 		"fabric-gametest": [
+			"com.shouyun.tacticalpickup.gametest.AmountPickupGameTests",
 			"com.shouyun.tacticalpickup.gametest.ManualPickupGameTests",
 			"com.shouyun.tacticalpickup.gametest.GroupedPickupGameTests"
 		]

@@ -1,6 +1,7 @@
 package com.shouyun.tacticalpickup.pickup;
 
 import com.shouyun.tacticalpickup.mixin.ItemEntityAccessor;
+import com.shouyun.tacticalpickup.network.PickupRequestPayload;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -16,6 +17,14 @@ public final class PickupRequestHandler {
 	}
 
 	public static void handle(ServerPlayer player, int entityId) {
+		handle(player, entityId, PickupRequestPayload.ALL_ITEMS);
+	}
+
+	public static void handle(ServerPlayer player, int entityId, int requestedAmount) {
+		if (requestedAmount < PickupRequestPayload.ALL_ITEMS) {
+			return;
+		}
+
 		if (player == null || player.isRemoved() || !player.isAlive() || player.isSpectator()) {
 			return;
 		}
@@ -43,16 +52,31 @@ public final class PickupRequestHandler {
 			.comparingDouble((ItemEntity itemEntity) -> player.distanceToSqr(itemEntity))
 			.thenComparingInt(Entity::getId));
 
+		boolean pickupAll = requestedAmount == PickupRequestPayload.ALL_ITEMS;
+		int remainingRequested = requestedAmount;
+
 		for (ItemEntity member : members) {
+			if (!pickupAll && remainingRequested <= 0) {
+				break;
+			}
+
 			// Revalidate each entity independently immediately before its transaction.
 			if (!isEligibleGroupMember(player, member, groupKey) || member.hasPickUpDelay()) {
 				continue;
 			}
 
-			if (SingleEntityPickupTransaction.tryPickupSingleEntity(player, member) == 0) {
+			int insertedCount = pickupAll
+				? SingleEntityPickupTransaction.tryPickupSingleEntity(player, member)
+				: SingleEntityPickupTransaction.tryPickupSingleEntity(player, member, remainingRequested);
+
+			if (insertedCount == 0) {
 				// Remaining members have the same Item + Components, so the inventory
 				// cannot accept any useful amount from them either.
 				break;
+			}
+
+			if (!pickupAll) {
+				remainingRequested -= insertedCount;
 			}
 		}
 	}

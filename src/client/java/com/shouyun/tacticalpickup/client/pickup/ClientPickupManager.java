@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
@@ -27,7 +28,10 @@ public final class ClientPickupManager {
 	private int selectedIndex;
 	private int ticksUntilScan;
 	private boolean forceScan = true;
+	private boolean pickupAll = true;
+	private int selectedAmount = 1;
 	private double accumulatedScroll;
+	private ScrollMode scrollMode = ScrollMode.NONE;
 
 	private ClientPickupManager() {
 	}
@@ -75,7 +79,8 @@ public final class ClientPickupManager {
 		if (!pickupMode) {
 			if (hasValidCachedEntry(client)) {
 				pickupMode = true;
-				accumulatedScroll = 0.0D;
+				resetAmount();
+				resetScroll();
 			}
 
 			return;
@@ -89,7 +94,7 @@ public final class ClientPickupManager {
 		}
 
 		if (ClientPlayNetworking.canSend(PickupRequestPayload.TYPE)) {
-			ClientPlayNetworking.send(new PickupRequestPayload(selected.representativeEntityId()));
+			ClientPlayNetworking.send(new PickupRequestPayload(selected.representativeEntityId(), requestedAmount()));
 			forceScan = true;
 		}
 	}
@@ -109,6 +114,14 @@ public final class ClientPickupManager {
 			return true;
 		}
 
+		ScrollMode nextScrollMode = Screen.hasShiftDown()
+			? (Screen.hasControlDown() ? ScrollMode.QUANTITY_FAST : ScrollMode.QUANTITY)
+			: ScrollMode.SELECTION;
+		if (scrollMode != nextScrollMode) {
+			accumulatedScroll = 0.0D;
+			scrollMode = nextScrollMode;
+		}
+
 		if (accumulatedScroll != 0.0D && Math.signum(scrollAmount) != Math.signum(accumulatedScroll)) {
 			accumulatedScroll = 0.0D;
 		}
@@ -118,7 +131,12 @@ public final class ClientPickupManager {
 
 		if (steps != 0) {
 			accumulatedScroll -= steps;
-			moveSelection(-steps);
+
+			if (scrollMode == ScrollMode.QUANTITY || scrollMode == ScrollMode.QUANTITY_FAST) {
+				adjustAmount(steps, scrollMode == ScrollMode.QUANTITY_FAST ? 16 : 1);
+			} else {
+				moveSelection(-steps);
+			}
 		}
 
 		return true;
@@ -126,7 +144,7 @@ public final class ClientPickupManager {
 
 	public void exitPickupMode() {
 		pickupMode = false;
-		accumulatedScroll = 0.0D;
+		resetScroll();
 	}
 
 	public void reset() {
@@ -136,6 +154,7 @@ public final class ClientPickupManager {
 		selectedIndex = 0;
 		ticksUntilScan = 0;
 		forceScan = true;
+		resetAmount();
 		exitPickupMode();
 	}
 
@@ -151,6 +170,19 @@ public final class ClientPickupManager {
 		return selectedIndex;
 	}
 
+	public LootGroup selectedGroup() {
+		return selectedIndex >= 0 && selectedIndex < groups.size() ? groups.get(selectedIndex) : null;
+	}
+
+	public boolean pickupAll() {
+		return pickupAll;
+	}
+
+	public int selectedAmount() {
+		LootGroup selected = selectedGroup();
+		return pickupAll && selected != null ? selected.totalCount() : selectedAmount;
+	}
+
 	private void resetForWorld(LocalPlayer player, ResourceKey<Level> dimension) {
 		groups = List.of();
 		observedPlayer = player;
@@ -158,12 +190,15 @@ public final class ClientPickupManager {
 		selectedIndex = 0;
 		ticksUntilScan = 0;
 		forceScan = true;
+		resetAmount();
 		exitPickupMode();
 	}
 
 	private void scan(Minecraft client) {
 		int previousIndex = selectedIndex;
 		LootGroupKey previousKey = selectedGroup() == null ? null : selectedGroup().key();
+		boolean previousPickupAll = pickupAll;
+		int previousSelectedAmount = selectedAmount;
 		List<ItemEntity> found = new ArrayList<>(PickupConstants.MAX_SCANNED_ENTITIES);
 
 		client.level.getEntities(
@@ -188,12 +223,21 @@ public final class ClientPickupManager {
 
 		if (groups.isEmpty()) {
 			selectedIndex = 0;
+			resetAmount();
 			exitPickupMode();
 			return;
 		}
 
 		int retainedIndex = indexOfGroup(previousKey);
 		selectedIndex = retainedIndex >= 0 ? retainedIndex : Math.min(previousIndex, groups.size() - 1);
+
+		if (retainedIndex >= 0) {
+			pickupAll = previousPickupAll;
+			selectedAmount = previousSelectedAmount;
+			reconcileAmount(groups.get(selectedIndex).totalCount());
+		} else {
+			resetAmount();
+		}
 	}
 
 	private boolean hasValidCachedEntry(Minecraft client) {
@@ -228,10 +272,6 @@ public final class ClientPickupManager {
 			&& client.getOverlay() == null;
 	}
 
-	private LootGroup selectedGroup() {
-		return selectedIndex >= 0 && selectedIndex < groups.size() ? groups.get(selectedIndex) : null;
-	}
-
 	private int indexOfGroup(LootGroupKey key) {
 		if (key == null) {
 			return -1;
@@ -248,7 +288,59 @@ public final class ClientPickupManager {
 
 	private void moveSelection(int amount) {
 		if (!groups.isEmpty()) {
-			selectedIndex = Math.floorMod(selectedIndex + amount, groups.size());
+			int nextIndex = Math.floorMod(selectedIndex + amount, groups.size());
+
+			if (nextIndex != selectedIndex) {
+				selectedIndex = nextIndex;
+				resetAmount();
+			}
 		}
+	}
+
+	private void adjustAmount(int scrollSteps, int amountPerStep) {
+		LootGroup selected = selectedGroup();
+		if (selected == null || selected.totalCount() <= 0) {
+			return;
+		}
+
+		int totalCount = selected.totalCount();
+		int currentAmount = pickupAll ? totalCount : selectedAmount;
+		long adjustedAmount = currentAmount + (long) scrollSteps * amountPerStep;
+
+		if (adjustedAmount >= totalCount) {
+			resetAmount();
+		} else {
+			pickupAll = false;
+			selectedAmount = (int) Math.max(1L, adjustedAmount);
+		}
+	}
+
+	private void reconcileAmount(int totalCount) {
+		if (pickupAll || selectedAmount >= totalCount) {
+			resetAmount();
+		} else {
+			selectedAmount = Math.max(1, selectedAmount);
+		}
+	}
+
+	private int requestedAmount() {
+		return pickupAll ? PickupRequestPayload.ALL_ITEMS : selectedAmount;
+	}
+
+	private void resetAmount() {
+		pickupAll = true;
+		selectedAmount = 1;
+	}
+
+	private void resetScroll() {
+		accumulatedScroll = 0.0D;
+		scrollMode = ScrollMode.NONE;
+	}
+
+	private enum ScrollMode {
+		NONE,
+		SELECTION,
+		QUANTITY,
+		QUANTITY_FAST
 	}
 }

@@ -2,7 +2,13 @@
 	"tactical_pickup.hud.title": "Nearby Items",
 	"tactical_pickup.hud.enter": "[F] Pickup",
 	"tactical_pickup.hud.scroll": "Mouse wheel: Select",
+	"tactical_pickup.hud.adjust_amount": "Shift + wheel: Adjust amount",
+	"tactical_pickup.hud.adjust_amount_fast": "Ctrl + Shift + wheel: Fast adjust (±16)",
 	"tactical_pickup.hud.pickup": "F: Pickup",
 	"tactical_pickup.hud.exit": "ESC: Exit",
-	"tactical_pickup.hud.more": "%s more..."
+	"tactical_pickup.hud.more": "%s more...",
+	"tactical_pickup.hud.enchantments": "Enchantments",
+	"tactical_pickup.hud.more_enchantments": "%s more...",
+	"tactical_pickup.hud.amount_all": "Pickup amount: All (%s)",
+	"tactical_pickup.hud.amount": "Pickup amount: %s / %s"
 }

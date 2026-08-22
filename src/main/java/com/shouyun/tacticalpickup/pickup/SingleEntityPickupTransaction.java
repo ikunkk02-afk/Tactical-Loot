@@ -15,13 +15,19 @@ public final class SingleEntityPickupTransaction {
 
 	public static int tryPickupSingleEntity(ServerPlayer player, ItemEntity itemEntity) {
 		ItemStack groundStack = itemEntity.getItem();
+		return tryPickupSingleEntity(player, itemEntity, groundStack.getCount());
+	}
 
-		if (groundStack.isEmpty() || groundStack.getCount() <= 0) {
+	public static int tryPickupSingleEntity(ServerPlayer player, ItemEntity itemEntity, int maxAmount) {
+		ItemStack groundStack = itemEntity.getItem();
+
+		if (groundStack.isEmpty() || groundStack.getCount() <= 0 || maxAmount <= 0) {
 			return 0;
 		}
 
 		int originalGroundCount = groundStack.getCount();
-		ItemStack insertionStack = groundStack.copy();
+		int attemptCount = Math.min(originalGroundCount, maxAmount);
+		ItemStack insertionStack = groundStack.copyWithCount(attemptCount);
 		Inventory inventory = player.getInventory();
 		int matchingCountBefore = countMatching(inventory, groundStack);
 
@@ -32,12 +38,12 @@ public final class SingleEntityPickupTransaction {
 
 			// Inventory.add deliberately consumes an uninserted remainder for creative
 			// players. Reconstruct the copy's remainder from the real inventory increase.
-			if (actualInventoryIncrease >= 0 && actualInventoryIncrease <= originalGroundCount) {
-				insertionStack.setCount(originalGroundCount - actualInventoryIncrease);
+			if (actualInventoryIncrease >= 0 && actualInventoryIncrease <= attemptCount) {
+				insertionStack.setCount(attemptCount - actualInventoryIncrease);
 			}
 		}
 
-		int insertedCount = originalGroundCount - insertionStack.getCount();
+		int insertedCount = attemptCount - insertionStack.getCount();
 
 		if (insertedCount <= 0) {
 			return 0;
