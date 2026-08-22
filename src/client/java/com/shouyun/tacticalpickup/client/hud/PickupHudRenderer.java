@@ -2,27 +2,21 @@ package com.shouyun.tacticalpickup.client.hud;
 
 import com.shouyun.tacticalpickup.client.pickup.ClientPickupManager;
 import com.shouyun.tacticalpickup.client.input.ClientKeyMappings;
+import com.shouyun.tacticalpickup.client.ui.ItemDetailHelper;
 import com.shouyun.tacticalpickup.filter.ItemFilterState;
 import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.pickup.LootGroup;
 import com.shouyun.tacticalpickup.pickup.PickupConstants;
-import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 public final class PickupHudRenderer {
 	private static final int MIN_PANEL_WIDTH = 150;
 	private static final int MAX_PANEL_WIDTH = 240;
-	private static final int MAX_VISIBLE_ENCHANTMENTS = 5;
 	private static final int PANEL_PADDING = 6;
 	private static final int ITEM_SIZE = 16;
 	private static final int ROW_HEIGHT = 18;
@@ -50,8 +44,8 @@ public final class PickupHudRenderer {
 		LootGroup selectedGroup = pickupMode ? manager.selectedGroup() : null;
 		List<Component> enchantments = selectedGroup == null
 			? List.of()
-			: collectEnchantments(client, selectedGroup.displayStack());
-		int visibleEnchantments = Math.min(enchantments.size(), MAX_VISIBLE_ENCHANTMENTS);
+			: ItemDetailHelper.collectEnchantments(client, selectedGroup.displayStack());
+		int visibleEnchantments = Math.min(enchantments.size(), ItemDetailHelper.MAX_VISIBLE_ENCHANTMENTS);
 		int hiddenEnchantments = enchantments.size() - visibleEnchantments;
 		Component amountText = selectedGroup == null ? null : amountText(manager, selectedGroup);
 		int visibleCount = calculateVisibleCount(font, graphics.guiHeight(), groups.size(), pickupMode, visibleEnchantments, hiddenEnchantments);
@@ -154,23 +148,11 @@ public final class PickupHudRenderer {
 				cursorY
 			);
 			cursorY = drawInstruction(graphics, font, "tactical_pickup.hud.pickup", x, cursorY);
+			cursorY = drawOpenLootInstruction(graphics, font, x, cursorY);
 			drawInstruction(graphics, font, "tactical_pickup.hud.exit", x, cursorY);
 		} else {
-			drawInstruction(graphics, font, "tactical_pickup.hud.enter", x, cursorY);
-		}
-	}
-
-	private static List<Component> collectEnchantments(Minecraft client, ItemStack stack) {
-		List<Component> enchantments = new ArrayList<>();
-		Item.TooltipContext context = Item.TooltipContext.of(client.level);
-		addEnchantments(stack.get(DataComponents.STORED_ENCHANTMENTS), context, enchantments);
-		addEnchantments(stack.get(DataComponents.ENCHANTMENTS), context, enchantments);
-		return List.copyOf(enchantments);
-	}
-
-	private static void addEnchantments(ItemEnchantments itemEnchantments, Item.TooltipContext context, List<Component> output) {
-		if (itemEnchantments != null && !itemEnchantments.isEmpty()) {
-			itemEnchantments.addToTooltip(context, output::add, TooltipFlag.NORMAL);
+			cursorY = drawInstruction(graphics, font, "tactical_pickup.hud.enter", x, cursorY);
+			drawOpenLootInstruction(graphics, font, x, cursorY);
 		}
 	}
 
@@ -227,9 +209,9 @@ public final class PickupHudRenderer {
 			}
 
 			height += lineStep + SECTION_GAP;
-			height += 6 * lineStep;
+			height += 7 * lineStep;
 		} else {
-			height += lineStep;
+			height += 2 * lineStep;
 		}
 
 		return height + PANEL_PADDING;
@@ -278,6 +260,10 @@ public final class PickupHudRenderer {
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.pickup")));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.exit")));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.enter")));
+		width = Math.max(width, font.width(Component.translatable(
+			"tactical_pickup.hud.open_loot_screen",
+			ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage()
+		)));
 		int screenLimit = Math.max(MIN_PANEL_WIDTH, client.getWindow().getGuiScaledWidth() / 2 - 16);
 		return Math.min(Math.max(width + PANEL_PADDING * 2, MIN_PANEL_WIDTH), Math.min(MAX_PANEL_WIDTH, screenLimit));
 	}
@@ -305,6 +291,19 @@ public final class PickupHudRenderer {
 	private static int drawInstructionComponent(GuiGraphics graphics, Font font, Component component, int x, int y) {
 		graphics.drawString(font, component, x + PANEL_PADDING, y, MUTED_TEXT_COLOR, true);
 		return y + font.lineHeight + 1;
+	}
+
+	private static int drawOpenLootInstruction(GuiGraphics graphics, Font font, int x, int y) {
+		return drawInstructionComponent(
+			graphics,
+			font,
+			Component.translatable(
+				"tactical_pickup.hud.open_loot_screen",
+				ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage()
+			),
+			x,
+			y
+		);
 	}
 
 	private static String groupLabel(LootGroup group, ItemFilterState state) {

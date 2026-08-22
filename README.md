@@ -36,6 +36,15 @@ Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量
 - 过滤规则持久化在 `config/tactical_pickup_filters.json`，跨世界和服务器沿用；移除模组后其 Item ID 规则仍会保留
 - Hidden 只影响 Tactical Pickup 的客户端显示与选择，不删除 ItemEntity，也不干涉水流、漏斗、五分钟寿命或其他模组系统
 - 安装 Mod Menu 后可从 `Mods → Tactical Pickup → Config` 打开同一过滤管理界面；不安装时 O 入口及全部功能仍可用
+- 按 H 主动打开不会暂停游戏的大型战利品界面；它不会因附近 Group 数量自动弹出，F 仍是默认快速拾取方式
+- 大型界面以自适应滚动卡片 Grid 显示所有可见 LootGroup，并支持按本地化名称或完整 Item ID 搜索
+- 右侧实时显示只读的玩家主背包与快捷栏；它只作为库存容量参考和拖放目标，不允许整理槽位或向地面丢弃
+- 单击 Loot Card 只会选中并显示总量、过滤状态与最多 5 条附魔；Vanilla Item Tooltip 继续提供完整 Components、耐久、药水和模组物品信息
+- 按住 Loot Card 移动超过 5 GUI 像素后可拖入整个背包面板，或使用详情区“拾取”按钮发送相同请求
+- Loot Screen 的 ALL/指定数量与 HUD 共用同一客户端数量语义；客户端仍只发送代表实体 ID 与请求数量
+- HIDDEN 不进入 Loot Screen，LOW_PRIORITY 继续显示但排在全部 Normal 后；完整过滤管理仍由 O 打开
+- 战利品卡片只随服务端同步后的下一次扫描更新；拖放不会直接修改客户端 Inventory 或 ItemEntity
+- 受到实际伤害、死亡、切换维度或断开连接时 Loot Screen 会立即关闭并清理临时拖动状态
 
 ## 构建
 
@@ -52,7 +61,7 @@ gradlew.bat runServer --args="nogui"
 
 ## 开发状态
 
-**当前仍处于早期开发阶段。** 当前版本尚不包含大型战利品界面或 Forge/NeoForge 支持。
+**Fabric 1.21.1 第一版主要功能已经完成。** 当前版本不包含 Forge 或 NeoForge 支持。
 
 ## License
 

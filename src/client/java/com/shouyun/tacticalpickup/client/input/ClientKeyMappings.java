@@ -19,6 +19,12 @@ public final class ClientKeyMappings {
 		GLFW.GLFW_KEY_O,
 		CATEGORY
 	);
+	public static final KeyMapping OPEN_LOOT_SCREEN = new KeyMapping(
+		"key.tactical_pickup.open_loot_screen",
+		InputConstants.Type.KEYSYM,
+		GLFW.GLFW_KEY_H,
+		CATEGORY
+	);
 
 	private ClientKeyMappings() {
 	}
@@ -26,5 +32,6 @@ public final class ClientKeyMappings {
 	public static void register() {
 		KeyBindingHelper.registerKeyBinding(CYCLE_FILTER);
 		KeyBindingHelper.registerKeyBinding(OPEN_FILTERS);
+		KeyBindingHelper.registerKeyBinding(OPEN_LOOT_SCREEN);
 	}
 }

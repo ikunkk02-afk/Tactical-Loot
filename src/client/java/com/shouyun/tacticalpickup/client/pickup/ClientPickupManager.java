@@ -33,8 +33,7 @@ public final class ClientPickupManager {
 	private int selectedIndex;
 	private int ticksUntilScan;
 	private boolean forceScan = true;
-	private boolean pickupAll = true;
-	private int selectedAmount = 1;
+	private final PickupQuantityState quantityState = new PickupQuantityState();
 	private double accumulatedScroll;
 	private ScrollMode scrollMode = ScrollMode.NONE;
 	private ItemFilterManager filterManager;
@@ -90,7 +89,7 @@ public final class ClientPickupManager {
 		if (!pickupMode) {
 			if (hasValidCachedEntry(client)) {
 				pickupMode = true;
-				resetAmount();
+				quantityState.reset();
 				resetScroll();
 			}
 
@@ -104,10 +103,7 @@ public final class ClientPickupManager {
 			return;
 		}
 
-		if (ClientPlayNetworking.canSend(PickupRequestPayload.TYPE)) {
-			ClientPlayNetworking.send(new PickupRequestPayload(selected.representativeEntityId(), requestedAmount()));
-			forceScan = true;
-		}
+		requestPickup(selected.representativeEntityId(), quantityState.requestedAmount());
 	}
 
 	public boolean handleScroll(Minecraft client, double horizontal, double vertical) {
@@ -188,6 +184,26 @@ public final class ClientPickupManager {
 		forceScan = true;
 	}
 
+	public boolean requestPickup(int representativeEntityId, int requestedAmount) {
+		if (requestedAmount < PickupRequestPayload.ALL_ITEMS
+				|| !ClientPlayNetworking.canSend(PickupRequestPayload.TYPE)) {
+			return false;
+		}
+
+		ClientPlayNetworking.send(new PickupRequestPayload(representativeEntityId, requestedAmount));
+		requestScan();
+		return true;
+	}
+
+	public boolean hasAvailableLoot(Minecraft client) {
+		return hasValidCachedEntry(client);
+	}
+
+	public LootGroup findGroup(LootGroupKey key) {
+		int index = indexOfGroup(key);
+		return index >= 0 ? groups.get(index) : null;
+	}
+
 	public void reset() {
 		groups = List.of();
 		observedPlayer = null;
@@ -195,7 +211,7 @@ public final class ClientPickupManager {
 		selectedIndex = 0;
 		ticksUntilScan = 0;
 		forceScan = true;
-		resetAmount();
+		quantityState.reset();
 		exitPickupMode();
 	}
 
@@ -224,12 +240,12 @@ public final class ClientPickupManager {
 	}
 
 	public boolean pickupAll() {
-		return pickupAll;
+		return quantityState.pickupAll();
 	}
 
 	public int selectedAmount() {
 		LootGroup selected = selectedGroup();
-		return pickupAll && selected != null ? selected.totalCount() : selectedAmount;
+		return selected == null ? 1 : quantityState.selectedAmount(selected.totalCount());
 	}
 
 	private void resetForWorld(LocalPlayer player, ResourceKey<Level> dimension) {
@@ -239,15 +255,13 @@ public final class ClientPickupManager {
 		selectedIndex = 0;
 		ticksUntilScan = 0;
 		forceScan = true;
-		resetAmount();
+		quantityState.reset();
 		exitPickupMode();
 	}
 
 	private void scan(Minecraft client) {
 		int previousIndex = selectedIndex;
 		LootGroupKey previousKey = selectedGroup() == null ? null : selectedGroup().key();
-		boolean previousPickupAll = pickupAll;
-		int previousSelectedAmount = selectedAmount;
 		List<ItemEntity> found = new ArrayList<>(PickupConstants.MAX_SCANNED_ENTITIES);
 
 		client.level.getEntities(
@@ -275,7 +289,7 @@ public final class ClientPickupManager {
 
 		if (groups.isEmpty()) {
 			selectedIndex = 0;
-			resetAmount();
+			quantityState.reset();
 			exitPickupMode();
 			return;
 		}
@@ -284,11 +298,9 @@ public final class ClientPickupManager {
 		selectedIndex = retainedIndex >= 0 ? retainedIndex : Math.min(previousIndex, groups.size() - 1);
 
 		if (retainedIndex >= 0) {
-			pickupAll = previousPickupAll;
-			selectedAmount = previousSelectedAmount;
-			reconcileAmount(groups.get(selectedIndex).totalCount());
+			quantityState.reconcile(groups.get(selectedIndex).totalCount());
 		} else {
-			resetAmount();
+			quantityState.reset();
 		}
 	}
 
@@ -344,7 +356,7 @@ public final class ClientPickupManager {
 
 			if (nextIndex != selectedIndex) {
 				selectedIndex = nextIndex;
-				resetAmount();
+				quantityState.reset();
 			}
 		}
 	}
@@ -355,33 +367,7 @@ public final class ClientPickupManager {
 			return;
 		}
 
-		int totalCount = selected.totalCount();
-		int currentAmount = pickupAll ? totalCount : selectedAmount;
-		long adjustedAmount = currentAmount + (long) scrollSteps * amountPerStep;
-
-		if (adjustedAmount >= totalCount) {
-			resetAmount();
-		} else {
-			pickupAll = false;
-			selectedAmount = (int) Math.max(1L, adjustedAmount);
-		}
-	}
-
-	private void reconcileAmount(int totalCount) {
-		if (pickupAll || selectedAmount >= totalCount) {
-			resetAmount();
-		} else {
-			selectedAmount = Math.max(1, selectedAmount);
-		}
-	}
-
-	private int requestedAmount() {
-		return pickupAll ? PickupRequestPayload.ALL_ITEMS : selectedAmount;
-	}
-
-	private void resetAmount() {
-		pickupAll = true;
-		selectedAmount = 1;
+		quantityState.adjust(scrollSteps, amountPerStep, selected.totalCount());
 	}
 
 	private void resetScroll() {
