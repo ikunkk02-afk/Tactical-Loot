@@ -71,7 +71,7 @@ class ItemFilterManagerTest {
 	@Test
 	void filterIUnknownModIdSurvivesWithoutRegistryLookup() {
 		Path configPath = configPath();
-		ResourceLocation missingItem = id("examplemod", "trash");
+		ResourceLocation missingItem = id("missing_namespace", "trash");
 		ItemFilterManager manager = new ItemFilterManager(configPath);
 		manager.setState(missingItem, ItemFilterState.HIDDEN);
 

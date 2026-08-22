@@ -1,51 +1,45 @@
-# Gradle
-
-.gradle/
+### Gradle ###
+.gradle
 build/
-out/
-classes/
-logs/
-*.log
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
 
-# Eclipse
-
-*.launch
-.classpath
-.project
-.settings/
-
-# IntelliJ IDEA
-
+### IntelliJ IDEA ###
 .idea/
+*.iws
 *.iml
 *.ipr
-*.iws
+out/
+!**/src/**/out/
 
-# Visual Studio Code
+.run/
 
-.vscode/
+### Eclipse ###
+.apt_generated
+.classpath
+.eclipse/
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
 bin/
+!**/src/**/bin/
 
-# macOS
+### VS Code ###
+.vscode/
 
-*.DS_Store
+### Mac OS ###
+.DS_Store
 
-# Fabric / local Minecraft runtime
-
+### Minecraft Modding ###
 run/
+!**/src/**/run/
+**/src/generated/**/.cache/
+repo/
+!**/src/**/repo/
+logs/
 crash-reports/
 saves/
-world/
-server.properties
-
-# Java diagnostics
-
-hs_err_*.log
-replay_*.log
-*.hprof
-*.jfr
-
-# Local environment files
-
-.env
-.env.*
+*.log
+hs_err_pid*

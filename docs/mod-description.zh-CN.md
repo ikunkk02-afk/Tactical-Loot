@@ -2,7 +2,7 @@
 
 ## 简介
 
-Tactical Loot（战术拾取）是一款重新设计 Minecraft 地面掉落物拾取与管理方式的 Fabric 模组。
+Tactical Loot（战术拾取）是一款重新设计 Minecraft 地面掉落物拾取与管理方式的 NeoForge 模组。
 
 当附近存在掉落物时，模组会通过世界 HUD 显示物品图标、名称、数量和操作提示。玩家可以切换不同目标，也可以打开专门的战术拾取界面，在附近战利品与自己的背包之间进行更精确的物品管理。
 
@@ -26,7 +26,7 @@ Tactical Loot（战术拾取）是一款重新设计 Minecraft 地面掉落物�
 
 v1.0.1 提供两套相互独立的 UI 编辑器。玩家可以调整战利品 HUD 与大型战术拾取界面的位置和比例，单独恢复默认设置，或一次恢复全部 UI。
 
-默认按 `U` 打开 Tactical Loot 设置。进入对应编辑器后，按住鼠标左键拖动界面，将鼠标停在预览上并滚动滚轮即可调整大小；按 `Esc` 保存并返回游戏。安装 Mod Menu 后，也可以从模组列表的配置按钮进入设置。
+默认按 `U` 打开 Tactical Loot 设置。进入对应编辑器后，按住鼠标左键拖动界面，将鼠标停在预览上并滚动滚轮即可调整大小；按 `Esc` 保存并返回游戏。也可以从 NeoForge Mods 页面的配置按钮进入设置。
 
 UI 配置只保存在客户端，不会同步到服务器或写入世界存档。
 
@@ -49,16 +49,13 @@ UI 配置只保存在客户端，不会同步到服务器或写入世界存档�
 ## 安装要求
 
 - Minecraft 1.21.1
-- Fabric Loader 0.19.3 或更高版本
-- Fabric API 0.116.15+1.21.1 或更高的 Minecraft 1.21.1 兼容版本
+- NeoForge 21.1.248 或兼容的 21.1.x 版本
 - Java 21 或更高版本
-- Mod Menu 11.0.4 或更高版本（可选）
 
-将 Fabric API 和 Tactical Loot 的正式 JAR 放入游戏实例的 `mods` 目录后启动游戏。多人游戏中，客户端与服务端都需要安装 Tactical Loot 和 Fabric API。
+将 Tactical Loot 的正式 JAR 放入游戏实例的 `mods` 目录后启动游戏。多人游戏中，客户端与服务端都需要安装版本一致的 Tactical Loot。
 
 ## 注意事项
 
-- 当前版本仅支持 Minecraft 1.21.1 Fabric
-- Mod Menu 不是必要依赖；不安装时仍可通过默认按键使用设置和过滤功能
+- 当前分支仅支持 Minecraft 1.21.1 NeoForge
 - 被隐藏或降低优先级的地面物品不会被删除，水流、漏斗和物品寿命等行为仍由 Minecraft 处理
 - 问题反馈：[GitHub Issues](https://github.com/ikunkk02-afk/Tactical-Loot/issues)

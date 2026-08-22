@@ -1,160 +1,62 @@
-# Tactical Loot
+# Tactical Loot（战术拾取）
 
-> 为 Minecraft 重新设计地面战利品拾取与管理体验的 Fabric 模组。
+This branch contains the NeoForge 1.21.1 version of Tactical Loot.
 
-Tactical Loot（战术拾取）会把附近的地面掉落物整理为可查看、选择和管理的战利品。玩家可以通过世界 HUD 快速确认目标，也可以打开独立界面进行精确拾取、指定背包槽位或重新丢弃物品。
+Tactical Loot 重新设计了 Minecraft 地面掉落物的拾取与管理流程。附近存在掉落物时，世界 HUD 会显示物品图标、名称、数量与操作提示；大型战术拾取界面则可在附近战利品和玩家背包之间进行精确管理。所有真实拾取、指定槽位放置和丢弃操作均由服务端验证并执行。
 
-模组会阻止原版通过玩家碰撞自动吸取掉落物。拾取和丢弃请求均由服务端根据实时距离、物品状态、拾取延迟与背包容量重新验证。
+## 功能
 
-当前正式版本：`1.0.1`
-
-## 功能特性
-
-### 附近战利品 HUD
-
-- 检测玩家 5 格范围内的掉落物，并按物品及其 Data Components 聚合
-- 同时显示最多 6 组战利品的图标、名称和数量
-- 为当前目标显示附魔信息、选取数量与操作提示
-- 无需打开背包即可查看和切换附近目标
-
-### 战利品选择与数量控制
-
-- 使用原版“切换副手”按键进入拾取模式并确认拾取，默认按键为 `F`
-- 使用滚轮循环选择战利品
-- 使用 `Shift + 滚轮` 按 1 调整数量
-- 使用 `Ctrl + Shift + 滚轮` 按 16 调整数量
-- 支持从多个相同掉落物实体中按指定数量拾取；背包空间不足时只移除实际放入的数量
-
-### 战术拾取界面
-
-- 默认按 `H` 打开，界面不会暂停游戏
-- 左侧显示玩家主背包与快捷栏，右侧显示附近战利品
-- 支持按本地化名称或物品 ID 搜索、查看详情、调整数量和滚动浏览
-- 使用 `Shift + 鼠标右键` 快速拾取一整组战利品
-
-### 指定槽位拖拽与物品丢弃
-
-- 将战利品拖到指定背包格，只尝试放入该格
-- 当物品不兼容、槽位已满或拖拽未落入有效槽位时取消操作
-- 将非空背包格拖到附近战利品区域，可以把该格物品重新丢到世界，并保留 Data Components
-
-### 物品过滤
-
-- 每种物品可设置为 `Normal`、`Low Priority` 或 `Hidden`
-- `Low Priority` 仍可见和拾取，但排列在普通物品之后
-- `Hidden` 不进入 HUD、拾取选择或战术拾取界面
-- 默认按 `X` 切换当前目标的过滤状态，按 `O` 打开过滤管理界面
-
-### UI 自定义
-
-- 默认按 `U` 打开 Tactical Loot 设置，也可从 Mod Menu 的配置按钮进入
-- 战利品 HUD 与大型战术拾取界面使用相互独立的编辑器和配置
-- 鼠标左键拖动位置；鼠标悬停在预览上时使用滚轮调整大小
-- HUD 缩放范围为 `60%`～`160%`，大型界面缩放范围为 `75%`～`135%`
-- 支持重置当前 UI 或确认后全部恢复默认
-- 位置使用归一化屏幕坐标保存，并根据窗口尺寸、GUI Scale 与界面大小限制在可见区域内
-- 按 `Esc` 保存并退出；配置仅保存在客户端
-
-### 界面动画
-
-界面包含短时间、低幅度的开启、关闭、悬停、选择和物品操作反馈动画，在保持 Minecraft 像素 UI 风格的同时减少交互切换的生硬感。
+- 检测并聚合玩家 5 格范围内的地面掉落物，HUD 最多显示 6 组
+- 使用滚轮选择战利品，按 1 或 16 调整拾取数量
+- 深色 Vanilla+ 战术拾取界面，左侧背包、右侧附近战利品
+- 按本地化名称或物品 ID 搜索，并支持物品优先级与隐藏过滤
+- `Shift + 鼠标右键` 快速拾取整组物品
+- 将地面战利品拖入指定背包槽位，支持同组件物品合并和部分堆叠
+- 将背包物品拖到战利品区域，由服务端生成地面物品
+- 基于 elapsed time 的 Fade、Slide、Scale、Hover、Press、Selection 与传输反馈动画
+- 独立调整 HUD 和战术拾取界面的位置、大小，支持 Reset Current / Reset All
+- 中文与英文界面
 
 ## 操作方式
 
 | 操作 | 默认输入 |
 | --- | --- |
-| 进入拾取模式 / 拾取当前战利品 | `F`（复用原版“切换副手”按键） |
+| 进入拾取模式 / 确认拾取 | `F`（复用原版副手键） |
 | 切换战利品 | 拾取模式中滚轮 |
-| 按 1 调整拾取数量 | `Shift + 滚轮` |
+| 调整拾取数量 | `Shift + 滚轮` |
 | 按 16 调整拾取数量 | `Ctrl + Shift + 滚轮` |
-| 退出拾取模式 | `Esc` |
-| 切换当前物品过滤状态 | `X` |
-| 打开过滤管理 | `O` |
-| 打开 / 关闭战术拾取界面 | `H` |
-| 打开 Tactical Loot 设置 | `U` |
-| 移动 UI | 编辑器中按住鼠标左键拖动 |
-| 调整 UI 比例 | 鼠标悬停在预览上并滚动滚轮 |
-| 重置当前 UI | 编辑器中按 `R` |
-| 选择战利品并查看详情 | 鼠标左键 |
+| 打开战术拾取界面 | `H` |
 | 快速拾取整组战利品 | `Shift + 鼠标右键` |
-| 拾取到指定背包格 | 将战利品拖到目标背包格 |
-| 丢弃一个背包格的物品 | 将背包物品拖到附近战利品区域 |
+| 打开设置 | `U` |
+| 打开过滤管理 | `O` |
+| 切换当前物品过滤状态 | `X` |
 
-`F` 读取 Minecraft 原版“切换副手”按键绑定；如果已在控制设置中重新绑定，请使用修改后的按键。`X`、`O`、`H` 和 `U` 可在控制设置的“战术拾取”分类中重新绑定。
-
-## UI 自定义
-
-按默认 `U` 打开设置，然后分别选择“编辑战利品 HUD”或“编辑战术拾取界面”。编辑器会提供模拟物品，不要求附近存在真实掉落物。
-
-两套 UI 的位置与比例独立保存。拖动和缩放期间只更新内存配置，按 `Esc` 退出编辑器时写入磁盘。窗口大小或 GUI Scale 变化后，界面会按保存的归一化位置重新计算，并保持在可见区域内。
+所有自定义按键均可在控制设置的 Tactical Loot 分类中重新绑定。也可从 NeoForge Mods 页面点击 Tactical Loot 的配置按钮打开现有设置界面。
 
 ## 安装要求
 
-- Minecraft `1.21.1`
-- Fabric Loader `0.19.3` 或更高版本
-- Fabric API `0.116.15+1.21.1` 或更高的 Minecraft 1.21.1 兼容版本
-- Java `21` 或更高版本
-- Mod Menu `11.0.4` 或更高版本（可选）
+- Minecraft 1.21.1
+- NeoForge 21.1.248 或兼容的 21.1.x 版本
+- Java 21
 
-## 安装方法
+将 `TacticalLoot-1.0.1-neoforge-1.21.1.jar` 放入游戏实例的 `mods` 目录。多人游戏中，客户端和服务端都必须安装版本一致的 Tactical Loot。
 
-1. 安装适用于 Minecraft 1.21.1 的 Fabric Loader。
-2. 将 Fabric API 与 Tactical Loot `1.0.1` 正式 JAR 放入游戏实例的 `mods` 目录。
-3. 启动游戏，并在模组列表中确认 Tactical Loot 已加载。
+客户端 JSON 配置保存在 NeoForge 配置目录中的 `tactical-loot-client.json` 与 `tactical_pickup_filters.json`。配置缺失、损坏或越界时会安全回退到修正后的默认值。
 
-多人游戏中，客户端和服务端都需要安装 Tactical Loot 与 Fabric API。
-
-## 使用方法
-
-靠近地面掉落物后，HUD 会显示附近战利品。按默认 `F` 进入拾取模式，使用滚轮选择目标，需要时调整数量，再按一次拾取。需要集中管理附近物品时，按默认 `H` 打开战术拾取界面；需要调整界面布局时，按默认 `U` 打开设置。
-
-被过滤的物品不会被删除或传送。水流、漏斗、物品寿命和其他世界行为仍由 Minecraft 处理。
-
-## 兼容性
-
-- 当前仅提供 Minecraft 1.21.1 的 Fabric 构建，不提供 Forge 或 NeoForge 构建
-- 模组使用客户端与服务端网络协议验证拾取和丢弃操作，因此多人游戏需要两端安装
-- Mod Menu 是可选集成；不安装时仍可使用按键入口和全部核心功能
-- 尚未全面验证与其他改写地面物品碰撞拾取或相同输入行为的模组之间的兼容性
-
-## 配置文件
-
-配置文件位于游戏实例的 `config` 目录：
-
-- `tactical-loot-client.json`：战利品 HUD 与大型界面的位置、比例
-- `tactical_pickup_filters.json`：物品过滤规则
-
-两份配置均为纯客户端设置，跨世界和服务器使用，不会发送给服务端，也不会写入世界存档。建议通过游戏内设置界面管理，不需要手动编辑 JSON。
-
-## 构建项目
-
-```bash
-git clone https://github.com/ikunkk02-afk/Tactical-Loot.git
-cd Tactical-Loot
-./gradlew build
-```
-
-Windows：
+## 构建与开发运行
 
 ```powershell
-gradlew.bat build
+.\gradlew.bat clean build
+.\gradlew.bat runClient
+.\gradlew.bat runServer
+.\gradlew.bat runGameTestServer
 ```
 
-构建产物位于 `build/libs/`。普通玩家应使用不带 `-sources` 后缀的重映射 JAR。
+正式安装文件输出到 `build/libs/TacticalLoot-1.0.1-neoforge-1.21.1.jar`。项目使用 NeoForge ModDevGradle 2.0.144、Mojmap 与 Parchment 2024.11.17 mappings。
 
-## 已知问题
+## 注意事项
 
-目前没有已确认的严重已知问题。若遇到可复现的问题，请附上 Minecraft、Fabric Loader、Fabric API 与模组版本，以及相关日志。
-
-## 问题反馈
-
-请通过 [GitHub Issues](https://github.com/ikunkk02-afk/Tactical-Loot/issues) 提交可复现的问题或兼容性反馈。
-
-## 开源许可
-
-本项目使用 [MIT License](LICENSE)。
-
-## Credits
-
-- 开发：寿云
-- 基于 Fabric Loader、Fabric API 与 Minecraft Java Edition 构建
+- 当前分支仅对应 Minecraft 1.21.1 NeoForge；Mod ID 保持为 `tactical_pickup`。
+- 模组会阻止玩家通过碰撞自动吸取掉落物；水流、漏斗和物品寿命仍由 Minecraft 处理。
+- 被隐藏或降低优先级的物品不会从世界中删除。
+- 问题反馈：[GitHub Issues](https://github.com/ikunkk02-afk/Tactical-Loot/issues)
