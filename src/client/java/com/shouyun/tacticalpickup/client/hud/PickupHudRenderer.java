@@ -3,35 +3,33 @@ package com.shouyun.tacticalpickup.client.hud;
 import com.shouyun.tacticalpickup.client.input.ClientKeyMappings;
 import com.shouyun.tacticalpickup.client.pickup.ClientPickupManager;
 import com.shouyun.tacticalpickup.client.ui.ItemDetailHelper;
+import com.shouyun.tacticalpickup.client.ui.PixelTheme;
+import com.shouyun.tacticalpickup.client.ui.animation.AnimatedFloat;
+import com.shouyun.tacticalpickup.client.ui.animation.Easing;
+import com.shouyun.tacticalpickup.client.ui.animation.GuiAnimation;
 import com.shouyun.tacticalpickup.filter.ItemFilterState;
 import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.pickup.LootGroup;
+import com.shouyun.tacticalpickup.pickup.LootGroupKey;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.ItemStack;
 
 public final class PickupHudRenderer {
-	private static final ResourceLocation SLOT_SPRITE = ResourceLocation.withDefaultNamespace("container/slot");
-	private static final int MIN_PANEL_WIDTH = 112;
+	private static final int MIN_PANEL_WIDTH = 118;
 	private static final int MAX_PANEL_WIDTH = 190;
-	private static final int PANEL_PADDING = 4;
-	private static final int ITEM_SIZE = 16;
-	private static final int ROW_HEIGHT = 18;
-	private static final int SECTION_GAP = 3;
+	private static final int PANEL_PADDING = 5;
+	private static final int ROW_HEIGHT = 22;
 	private static final int SCREEN_MARGIN = 8;
 	private static final int CROSSHAIR_OFFSET = 24;
-	private static final int PASSIVE_MAX_ENTRIES = 3;
-	private static final int PICKUP_MAX_ENTRIES = 5;
-	private static final int BACKGROUND_COLOR = 0x98101010;
-	private static final int BORDER_COLOR = 0xB0000000;
-	private static final int BORDER_HIGHLIGHT_COLOR = 0x58FFFFFF;
-	private static final int SELECTED_COLOR = 0x38FFFFFF;
-	private static final int TEXT_COLOR = 0xFFFFFFFF;
-	private static final int MUTED_TEXT_COLOR = 0xFFB8B8B8;
+	private static final int ENTER_DURATION_MS = 140;
+	private static final int EXIT_DURATION_MS = 100;
+	private static final int SWITCH_DURATION_MS = 120;
+	private static final int QUANTITY_PULSE_MS = 100;
+	private static final HudState STATE = new HudState();
 
 	private PickupHudRenderer() {
 	}
@@ -39,53 +37,40 @@ public final class PickupHudRenderer {
 	public static void render(GuiGraphics graphics, net.minecraft.client.DeltaTracker deltaTracker) {
 		Minecraft client = Minecraft.getInstance();
 		ClientPickupManager manager = ClientPickupManager.getInstance();
-		List<LootGroup> groups = manager.groups();
+		long now = System.nanoTime();
+		boolean hardHidden = client.player == null || client.level == null || client.options.hideGui;
+		if (hardHidden) {
+			STATE.clear(now);
+			return;
+		}
 
-		if (client.player == null || client.level == null || client.options.hideGui || groups.isEmpty()) {
+		List<LootGroup> groups = manager.groups();
+		boolean shouldShow = !groups.isEmpty() && client.screen == null && client.getOverlay() == null;
+		STATE.setVisible(shouldShow, now);
+		if (shouldShow) {
+			boolean pickupMode = manager.isPickupMode();
+			LootGroup group = pickupMode ? manager.selectedGroup() : groups.getFirst();
+			if (group != null) {
+				STATE.updateContent(
+					client,
+					manager,
+					group,
+					pickupMode,
+					pickupMode ? manager.selectedIndex() : 0,
+					groups.size(),
+					now
+				);
+			}
+		}
+
+		float opacity = STATE.opacity(now);
+		if (opacity <= 0.001F || STATE.current == null) {
 			return;
 		}
 
 		Font font = client.font;
-		boolean pickupMode = manager.isPickupMode();
-		LootGroup selectedGroup = pickupMode ? manager.selectedGroup() : null;
-		List<Component> enchantments = selectedGroup == null
-			? List.of()
-			: ItemDetailHelper.collectEnchantments(client, selectedGroup.displayStack());
-		int visibleEnchantments = Math.min(enchantments.size(), ItemDetailHelper.MAX_VISIBLE_ENCHANTMENTS);
-		int hiddenEnchantments = enchantments.size() - visibleEnchantments;
-		Component amountText = selectedGroup == null ? null : amountText(manager, selectedGroup);
-		int visibleCount = calculateVisibleCount(
-			font,
-			graphics.guiHeight(),
-			groups.size(),
-			pickupMode,
-			visibleEnchantments,
-			hiddenEnchantments
-		);
-		int firstVisible = pickupMode
-			? Math.max(0, Math.min(manager.selectedIndex() - visibleCount / 2, groups.size() - visibleCount))
-			: 0;
-		int hiddenCount = groups.size() - visibleCount;
-		int panelHeight = calculatePanelHeight(
-			font,
-			visibleCount,
-			hiddenCount,
-			pickupMode,
-			visibleEnchantments,
-			hiddenEnchantments
-		);
-		int panelWidth = calculatePanelWidth(
-			client,
-			groups,
-			firstVisible,
-			visibleCount,
-			enchantments,
-			visibleEnchantments,
-			hiddenEnchantments,
-			amountText,
-			pickupMode,
-			hiddenCount
-		);
+		int panelWidth = STATE.panelWidth(font, client.getWindow().getGuiScaledWidth());
+		int panelHeight = STATE.panelHeight(font);
 		int centerX = graphics.guiWidth() / 2;
 		int preferredRightX = centerX + CROSSHAIR_OFFSET;
 		int x = preferredRightX + panelWidth <= graphics.guiWidth() - SCREEN_MARGIN
@@ -93,283 +78,209 @@ public final class PickupHudRenderer {
 			: Math.max(SCREEN_MARGIN, centerX - CROSSHAIR_OFFSET - panelWidth);
 		int centeredY = graphics.guiHeight() / 2 - panelHeight / 2;
 		int maxY = Math.max(SCREEN_MARGIN, graphics.guiHeight() - panelHeight - SCREEN_MARGIN);
-		int y = Math.max(SCREEN_MARGIN, Math.min(centeredY, maxY));
+		int baseY = Math.max(SCREEN_MARGIN, Math.min(centeredY, maxY));
+		float yOffset = STATE.targetVisible ? (1.0F - opacity) * 4.0F : -(1.0F - opacity) * 2.0F;
+		float scale = STATE.targetVisible ? 0.97F + opacity * 0.03F : 1.0F;
 
-		renderPanel(graphics, x, y, panelWidth, panelHeight);
+		graphics.pose().pushPose();
+		graphics.pose().translate(x + panelWidth / 2.0F, baseY + panelHeight / 2.0F + yOffset, 0.0F);
+		graphics.pose().scale(scale, scale, 1.0F);
+		graphics.pose().translate(-(x + panelWidth / 2.0F), -(baseY + panelHeight / 2.0F), 0.0F);
+		renderPanel(graphics, font, manager, x, baseY, panelWidth, panelHeight, opacity, now);
+		graphics.pose().popPose();
+	}
+
+	private static void renderPanel(
+			GuiGraphics graphics,
+			Font font,
+			ClientPickupManager manager,
+			int x,
+			int y,
+			int panelWidth,
+			int panelHeight,
+			float opacity,
+			long now
+	) {
+		PixelTheme.drawPanel(graphics, x, y, panelWidth, panelHeight, opacity * 0.96F);
 		int cursorY = y + PANEL_PADDING;
-		if (pickupMode) {
-			graphics.drawString(
-				font,
-				Component.translatable("tactical_pickup.hud.title"),
-				x + PANEL_PADDING,
-				cursorY,
-				TEXT_COLOR,
-				true
+		if (STATE.pickupMode) {
+			Component title = Component.translatable(
+				"tactical_pickup.hud.position",
+				STATE.groupIndex + 1,
+				STATE.groupCount
 			);
-			cursorY += font.lineHeight + SECTION_GAP;
+			graphics.drawString(font, title, x + PANEL_PADDING, cursorY, PixelTheme.color(PixelTheme.ACCENT, opacity), true);
+			cursorY += font.lineHeight + 3;
 		}
 
-		int markerWidth = pickupMode ? 7 : 0;
-		for (int offset = 0; offset < visibleCount; offset++) {
-			int entryIndex = firstVisible + offset;
-			LootGroup group = groups.get(entryIndex);
-			boolean selected = pickupMode && entryIndex == manager.selectedIndex();
-			ItemFilterState filterState = manager.filterManager().getState(LootGroupFilter.itemId(group));
-			if (selected) {
-				graphics.fill(x + 1, cursorY, x + panelWidth - 1, cursorY + ROW_HEIGHT, SELECTED_COLOR);
-				graphics.drawString(font, Component.literal(">"), x + 3, cursorY + 4, TEXT_COLOR, true);
-			}
-
-			int itemX = x + PANEL_PADDING + markerWidth;
-			graphics.blitSprite(SLOT_SPRITE, itemX, cursorY, ROW_HEIGHT, ROW_HEIGHT);
-			graphics.renderItem(group.displayStack(), itemX + 1, cursorY + 1);
-			String label = groupLabel(group, filterState);
-			int textX = itemX + ITEM_SIZE + 4;
-			int availableTextWidth = x + panelWidth - PANEL_PADDING - textX;
-			String clippedLabel = font.plainSubstrByWidth(label, Math.max(1, availableTextWidth));
-			int rowTextColor = filterState == ItemFilterState.LOW_PRIORITY && !selected ? MUTED_TEXT_COLOR : TEXT_COLOR;
-			graphics.drawString(font, clippedLabel, textX, cursorY + 5, rowTextColor, true);
-			cursorY += ROW_HEIGHT;
-		}
-
-		if (hiddenCount > 0) {
-			drawClippedComponent(
-				graphics,
-				font,
-				Component.translatable("tactical_pickup.hud.more", hiddenCount),
-				x + PANEL_PADDING + markerWidth,
-				cursorY,
-				panelWidth - PANEL_PADDING * 2 - markerWidth,
-				MUTED_TEXT_COLOR
-			);
-			cursorY += font.lineHeight + 1;
-		}
-
-		cursorY += SECTION_GAP;
-		if (!pickupMode) {
-			drawClippedComponent(
-				graphics,
-				font,
-				passiveActions(),
-				x + PANEL_PADDING,
-				cursorY,
-				panelWidth - PANEL_PADDING * 2,
-				MUTED_TEXT_COLOR
-			);
+		renderSwitchingContent(graphics, font, x, cursorY, panelWidth, opacity, now);
+		cursorY += ROW_HEIGHT + 3;
+		if (!STATE.pickupMode) {
+			Component controls = passiveControls(STATE.groupCount);
+			drawClipped(graphics, font, controls, x + PANEL_PADDING, cursorY, panelWidth - PANEL_PADDING * 2, PixelTheme.MUTED_TEXT, opacity);
 			return;
 		}
 
-		if (visibleEnchantments > 0) {
+		if (!STATE.enchantments.isEmpty()) {
 			graphics.drawString(
 				font,
 				Component.translatable("tactical_pickup.hud.enchantments"),
 				x + PANEL_PADDING,
 				cursorY,
-				TEXT_COLOR,
+				PixelTheme.color(PixelTheme.ACCENT, opacity),
 				true
 			);
 			cursorY += font.lineHeight + 1;
-			for (int index = 0; index < visibleEnchantments; index++) {
-				drawClippedComponent(
+			int visible = Math.min(STATE.enchantments.size(), ItemDetailHelper.MAX_VISIBLE_ENCHANTMENTS);
+			for (int index = 0; index < visible; index++) {
+				drawClipped(
 					graphics,
 					font,
-					enchantments.get(index),
+					STATE.enchantments.get(index),
 					x + PANEL_PADDING,
 					cursorY,
 					panelWidth - PANEL_PADDING * 2,
-					MUTED_TEXT_COLOR
+					PixelTheme.MUTED_TEXT,
+					opacity
 				);
 				cursorY += font.lineHeight + 1;
 			}
-
-			if (hiddenEnchantments > 0) {
-				drawClippedComponent(
-					graphics,
-					font,
-					Component.translatable("tactical_pickup.hud.more_enchantments", hiddenEnchantments),
-					x + PANEL_PADDING,
-					cursorY,
-					panelWidth - PANEL_PADDING * 2,
-					MUTED_TEXT_COLOR
-				);
-				cursorY += font.lineHeight + 1;
-			}
-			cursorY += SECTION_GAP;
+			cursorY += 2;
 		}
 
-		drawClippedComponent(
-			graphics,
-			font,
-			amountText,
-			x + PANEL_PADDING,
-			cursorY,
-			panelWidth - PANEL_PADDING * 2,
-			TEXT_COLOR
-		);
-		cursorY += font.lineHeight + 1 + SECTION_GAP;
+		Component amount = manager.pickupAll()
+			? Component.translatable("tactical_pickup.hud.amount_all", STATE.current.count)
+			: Component.translatable("tactical_pickup.hud.amount", manager.selectedAmount(), STATE.current.count);
+		drawClipped(graphics, font, amount, x + PANEL_PADDING, cursorY, panelWidth - PANEL_PADDING * 2, PixelTheme.TEXT, opacity);
+		cursorY += font.lineHeight + 3;
 		cursorY = drawInstruction(
 			graphics,
 			font,
 			Component.translatable("tactical_pickup.hud.controls.selection"),
 			x,
 			cursorY,
-			panelWidth
+			panelWidth,
+			opacity
 		);
-		cursorY = drawInstruction(graphics, font, pickupActions(), x, cursorY, panelWidth);
+		cursorY = drawInstruction(
+			graphics,
+			font,
+			Component.translatable(
+				"tactical_pickup.hud.controls.actions",
+				ClientKeyMappings.CYCLE_FILTER.getTranslatedKeyMessage(),
+				ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage()
+			),
+			x,
+			cursorY,
+			panelWidth,
+			opacity
+		);
 		drawInstruction(
 			graphics,
 			font,
 			Component.translatable("tactical_pickup.hud.controls.exit"),
 			x,
 			cursorY,
-			panelWidth
+			panelWidth,
+			opacity
 		);
 	}
 
-	private static Component amountText(ClientPickupManager manager, LootGroup selectedGroup) {
-		return manager.pickupAll()
-			? Component.translatable("tactical_pickup.hud.amount_all", selectedGroup.totalCount())
-			: Component.translatable("tactical_pickup.hud.amount", manager.selectedAmount(), selectedGroup.totalCount());
-	}
-
-	private static Component passiveActions() {
-		return Component.translatable(
-			"tactical_pickup.hud.controls.passive",
-			ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage()
-		);
-	}
-
-	private static Component pickupActions() {
-		return Component.translatable(
-			"tactical_pickup.hud.controls.actions",
-			ClientKeyMappings.CYCLE_FILTER.getTranslatedKeyMessage(),
-			ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage()
-		);
-	}
-
-	private static int calculateVisibleCount(
+	private static void renderSwitchingContent(
+			GuiGraphics graphics,
 			Font font,
-			int screenHeight,
-			int groupCount,
-			boolean pickupMode,
-			int visibleEnchantments,
-			int hiddenEnchantments
+			int x,
+			int y,
+			int panelWidth,
+			float opacity,
+			long now
 	) {
-		int maximumEntries = pickupMode ? PICKUP_MAX_ENTRIES : PASSIVE_MAX_ENTRIES;
-		int visibleCount = Math.min(groupCount, maximumEntries);
-		int availableHeight = Math.max(1, screenHeight - SCREEN_MARGIN * 2);
-
-		while (visibleCount > 1 && calculatePanelHeight(
+		float switchProgress = GuiAnimation.progress(now, STATE.switchStartedAtNanos, SWITCH_DURATION_MS);
+		if (STATE.previous != null && switchProgress < 1.0F) {
+			float oldProgress = Easing.IN_CUBIC.apply(switchProgress);
+			renderContentRow(
+				graphics,
 				font,
-				visibleCount,
-				groupCount - visibleCount,
-				pickupMode,
-				visibleEnchantments,
-				hiddenEnchantments
-			) > availableHeight) {
-			visibleCount--;
+				STATE.previous,
+				x,
+				y - Math.round(4.0F * oldProgress),
+				panelWidth,
+				opacity * (1.0F - oldProgress),
+				0.0F
+			);
+			float newProgress = Easing.OUT_CUBIC.apply(switchProgress);
+			renderContentRow(
+				graphics,
+				font,
+				STATE.current,
+				x,
+				y + Math.round(4.0F * (1.0F - newProgress)),
+				panelWidth,
+				opacity * newProgress,
+				STATE.quantityPulse(now)
+			);
+			return;
 		}
-		return visibleCount;
+
+		STATE.previous = null;
+		renderContentRow(graphics, font, STATE.current, x, y, panelWidth, opacity, STATE.quantityPulse(now));
 	}
 
-	private static int calculatePanelHeight(
+	private static void renderContentRow(
+			GuiGraphics graphics,
 			Font font,
-			int visibleCount,
-			int hiddenCount,
-			boolean pickupMode,
-			int visibleEnchantments,
-			int hiddenEnchantments
+			HudContent content,
+			int x,
+			int y,
+			int panelWidth,
+			float opacity,
+			float quantityPulse
 	) {
-		int lineStep = font.lineHeight + 1;
-		int height = PANEL_PADDING + visibleCount * ROW_HEIGHT;
-		if (pickupMode) {
-			height += font.lineHeight + SECTION_GAP;
-		}
-		height += hiddenCount > 0 ? lineStep : 0;
-		height += SECTION_GAP;
+		int slotX = x + PANEL_PADDING;
+		PixelTheme.drawSlot(graphics, slotX, y, ROW_HEIGHT, ROW_HEIGHT, 0.0F, opacity);
+		graphics.setColor(1.0F, 1.0F, 1.0F, Easing.clamp(opacity));
+		graphics.renderItem(content.stack, slotX + 3, y + 3);
+		graphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 
-		if (pickupMode) {
-			if (visibleEnchantments > 0) {
-				height += font.lineHeight + 1;
-				height += visibleEnchantments * lineStep;
-				height += hiddenEnchantments > 0 ? lineStep : 0;
-				height += SECTION_GAP;
-			}
-			height += lineStep + SECTION_GAP;
-			height += 3 * lineStep;
-		} else {
-			height += font.lineHeight;
-		}
-		return height + PANEL_PADDING;
+		int textX = slotX + ROW_HEIGHT + 4;
+		Component count = Component.literal("×" + content.count);
+		int countWidth = font.width(count);
+		int availableNameWidth = Math.max(1, x + panelWidth - PANEL_PADDING - textX - countWidth - 3);
+		String name = font.plainSubstrByWidth(content.name, availableNameWidth);
+		int color = content.filterState == ItemFilterState.LOW_PRIORITY ? PixelTheme.LOW_PRIORITY : PixelTheme.TEXT;
+		graphics.drawString(font, name, textX, y + 6, PixelTheme.color(color, opacity), true);
+
+		float scale = 1.0F + quantityPulse * 0.15F;
+		int countX = x + panelWidth - PANEL_PADDING - countWidth;
+		float centerX = countX + countWidth / 2.0F;
+		float centerY = y + 10.0F;
+		graphics.pose().pushPose();
+		graphics.pose().translate(centerX, centerY, 0.0F);
+		graphics.pose().scale(scale, scale, 1.0F);
+		graphics.pose().translate(-centerX, -centerY, 0.0F);
+		graphics.drawString(
+			font,
+			count,
+			countX,
+			y + 6,
+			PixelTheme.color(quantityPulse > 0.0F ? PixelTheme.ACCENT_BRIGHT : color, opacity),
+			true
+		);
+		graphics.pose().popPose();
 	}
 
-	private static int calculatePanelWidth(
-			Minecraft client,
-			List<LootGroup> groups,
-			int firstVisible,
-			int visibleCount,
-			List<Component> enchantments,
-			int visibleEnchantments,
-			int hiddenEnchantments,
-			Component amountText,
-			boolean pickupMode,
-			int hiddenCount
-	) {
-		Font font = client.font;
-		int markerWidth = pickupMode ? 7 : 0;
-		int width = pickupMode ? font.width(Component.translatable("tactical_pickup.hud.title")) : 0;
-
-		for (int offset = 0; offset < visibleCount; offset++) {
-			LootGroup group = groups.get(firstVisible + offset);
-			ItemFilterState state = ClientPickupManager.getInstance().filterManager().getState(LootGroupFilter.itemId(group));
-			width = Math.max(width, markerWidth + ITEM_SIZE + 4 + font.width(groupLabel(group, state)));
-		}
-		if (hiddenCount > 0) {
-			width = Math.max(width, markerWidth + font.width(Component.translatable("tactical_pickup.hud.more", hiddenCount)));
-		}
-
-		if (pickupMode) {
-			for (int index = 0; index < visibleEnchantments; index++) {
-				width = Math.max(width, font.width(enchantments.get(index)));
-			}
-			if (hiddenEnchantments > 0) {
-				width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.more_enchantments", hiddenEnchantments)));
-			}
-			if (amountText != null) {
-				width = Math.max(width, font.width(amountText));
-			}
-			width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.enchantments")));
-			width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.controls.selection")));
-			width = Math.max(width, font.width(pickupActions()));
-			width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.controls.exit")));
-		} else {
-			width = Math.max(width, font.width(passiveActions()));
-		}
-
-		int screenLimit = Math.max(1, client.getWindow().getGuiScaledWidth() - SCREEN_MARGIN * 2);
-		return Math.min(Math.max(width + PANEL_PADDING * 2, MIN_PANEL_WIDTH), Math.min(MAX_PANEL_WIDTH, screenLimit));
-	}
-
-	private static void renderPanel(GuiGraphics graphics, int x, int y, int width, int height) {
-		graphics.fill(x, y, x + width, y + height, BORDER_COLOR);
-		graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, BACKGROUND_COLOR);
-		graphics.fill(x + 1, y + 1, x + width - 1, y + 2, BORDER_HIGHLIGHT_COLOR);
-		graphics.fill(x + 1, y + 1, x + 2, y + height - 1, BORDER_HIGHLIGHT_COLOR);
-	}
-
-	private static void drawClippedComponent(
+	private static void drawClipped(
 			GuiGraphics graphics,
 			Font font,
 			Component component,
 			int x,
 			int y,
 			int maxWidth,
-			int fallbackColor
+			int color,
+			float opacity
 	) {
-		List<FormattedCharSequence> lines = font.split(component, Math.max(1, maxWidth));
-		if (!lines.isEmpty()) {
-			graphics.drawString(font, lines.getFirst(), x, y, fallbackColor, true);
-		}
+		String clipped = font.plainSubstrByWidth(component.getString(), Math.max(1, maxWidth));
+		graphics.drawString(font, clipped, x, y, PixelTheme.color(color, opacity), true);
 	}
 
 	private static int drawInstruction(
@@ -378,24 +289,165 @@ public final class PickupHudRenderer {
 			Component component,
 			int x,
 			int y,
-			int panelWidth
+			int panelWidth,
+			float opacity
 	) {
-		drawClippedComponent(
+		drawClipped(
 			graphics,
 			font,
 			component,
 			x + PANEL_PADDING,
 			y,
 			panelWidth - PANEL_PADDING * 2,
-			MUTED_TEXT_COLOR
+			PixelTheme.MUTED_TEXT,
+			opacity
 		);
 		return y + font.lineHeight + 1;
 	}
 
-	private static String groupLabel(LootGroup group, ItemFilterState state) {
-		String label = group.displayStack().getHoverName().getString() + " ×" + group.totalCount();
-		return state == ItemFilterState.LOW_PRIORITY
-			? label + " · " + Component.translatable("tactical_pickup.hud.low_priority").getString()
-			: label;
+	private static Component passiveControls(int groupCount) {
+		return groupCount > 1
+			? Component.translatable(
+				"tactical_pickup.hud.controls.passive_more",
+				ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage(),
+				groupCount - 1
+			)
+			: Component.translatable(
+				"tactical_pickup.hud.controls.passive",
+				ClientKeyMappings.OPEN_LOOT_SCREEN.getTranslatedKeyMessage()
+			);
+	}
+
+	private static final class HudState {
+		private final AnimatedFloat visibility = new AnimatedFloat(0.0F);
+		private boolean targetVisible;
+		private HudContent current;
+		private HudContent previous;
+		private LootGroupKey enchantmentKey;
+		private List<Component> enchantments = List.of();
+		private boolean pickupMode;
+		private int groupIndex;
+		private int groupCount;
+		private long switchStartedAtNanos = Long.MIN_VALUE;
+		private long quantityPulseStartedAtNanos = Long.MIN_VALUE;
+
+		private void setVisible(boolean visible, long now) {
+			if (visible == targetVisible) {
+				return;
+			}
+			targetVisible = visible;
+			visibility.setTarget(visible ? 1.0F : 0.0F, visible ? ENTER_DURATION_MS : EXIT_DURATION_MS, Easing.OUT_CUBIC, now);
+		}
+
+		private float opacity(long now) {
+			return visibility.value(now);
+		}
+
+		private void clear(long now) {
+			targetVisible = false;
+			visibility.snap(0.0F, now);
+			current = null;
+			previous = null;
+			enchantments = List.of();
+			enchantmentKey = null;
+		}
+
+		private void updateContent(
+				Minecraft client,
+				ClientPickupManager manager,
+				LootGroup group,
+				boolean nextPickupMode,
+				int nextGroupIndex,
+				int nextGroupCount,
+				long now
+		) {
+			ItemFilterState state = manager.filterManager().getState(LootGroupFilter.itemId(group));
+			if (current == null || !current.key.equals(group.key())) {
+				previous = current;
+				current = HudContent.of(group, state);
+				switchStartedAtNanos = now;
+				quantityPulseStartedAtNanos = now;
+			} else if (current.count != group.totalCount() || current.filterState != state) {
+				if (current.count != group.totalCount()) {
+					quantityPulseStartedAtNanos = now;
+				}
+				current = HudContent.of(group, state);
+			}
+
+			pickupMode = nextPickupMode;
+			groupIndex = nextGroupIndex;
+			groupCount = nextGroupCount;
+			if (pickupMode && !group.key().equals(enchantmentKey)) {
+				enchantmentKey = group.key();
+				enchantments = ItemDetailHelper.collectEnchantments(client, group.displayStack());
+			} else if (!pickupMode) {
+				enchantmentKey = null;
+				enchantments = List.of();
+			}
+		}
+
+		private float quantityPulse(long now) {
+			if (quantityPulseStartedAtNanos == Long.MIN_VALUE) {
+				return 0.0F;
+			}
+			float progress = GuiAnimation.progress(now, quantityPulseStartedAtNanos, QUANTITY_PULSE_MS);
+			if (progress >= 1.0F) {
+				quantityPulseStartedAtNanos = Long.MIN_VALUE;
+				return 0.0F;
+			}
+			return progress < 0.5F
+				? Easing.OUT_CUBIC.apply(progress * 2.0F)
+				: 1.0F - Easing.IN_CUBIC.apply((progress - 0.5F) * 2.0F);
+		}
+
+		private int panelWidth(Font font, int screenWidth) {
+			int width = ROW_HEIGHT + 4 + font.width(current.name) + font.width(" ×" + current.count);
+			if (pickupMode) {
+				width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.position", groupIndex + 1, groupCount)));
+				for (Component enchantment : enchantments) {
+					width = Math.max(width, font.width(enchantment));
+				}
+				width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.controls.selection")));
+			} else {
+				width = Math.max(width, font.width(passiveControls(groupCount)));
+			}
+			int screenLimit = Math.max(1, screenWidth - SCREEN_MARGIN * 2);
+			return Math.min(Math.max(width + PANEL_PADDING * 2, MIN_PANEL_WIDTH), Math.min(MAX_PANEL_WIDTH, screenLimit));
+		}
+
+		private int panelHeight(Font font) {
+			int height = PANEL_PADDING + ROW_HEIGHT + 3;
+			if (pickupMode) {
+				height += font.lineHeight + 3;
+				if (!enchantments.isEmpty()) {
+					height += font.lineHeight + 1;
+					height += Math.min(enchantments.size(), ItemDetailHelper.MAX_VISIBLE_ENCHANTMENTS) * (font.lineHeight + 1);
+					height += 2;
+				}
+				height += font.lineHeight + 3;
+				height += 3 * (font.lineHeight + 1);
+			} else {
+				height += font.lineHeight;
+			}
+			return height + PANEL_PADDING;
+		}
+	}
+
+	private record HudContent(
+		LootGroupKey key,
+		ItemStack stack,
+		String name,
+		int count,
+		ItemFilterState filterState
+	) {
+		private static HudContent of(LootGroup group, ItemFilterState state) {
+			return new HudContent(
+				group.key(),
+				group.displayStack().copyWithCount(1),
+				group.displayStack().getHoverName().getString(),
+				group.totalCount(),
+				state
+			);
+		}
 	}
 }

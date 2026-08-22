@@ -16,9 +16,10 @@ class LootScreenLayoutTest {
 		assertEquals(240, layout.panel().height());
 		assertFalse(layout.stacked());
 		assertTrue(layout.inventoryPanel().x() < layout.lootPanel().x());
-		assertTrue(layout.detailPanel().x() == layout.lootPanel().x());
-		assertTrue(layout.detailPanel().y() > layout.lootPanel().y());
-		assertTrue(layout.columns() >= 6 && layout.columns() <= 9);
+		assertEquals(layout.inventoryPanel().x(), layout.detailPanel().x());
+		assertTrue(layout.detailPanel().y() > layout.inventoryPanel().y());
+		assertTrue(layout.detailPanel().width() > layout.lootPanel().width());
+		assertTrue(layout.columns() >= 4 && layout.columns() <= 6);
 		assertInside(layout.panel(), layout.inventoryPanel());
 		assertInside(layout.panel(), layout.lootPanel());
 		assertInside(layout.panel(), layout.detailPanel());
@@ -55,7 +56,7 @@ class LootScreenLayoutTest {
 			assertInside(layout.panel(), layout.detailPanel());
 			assertFalse(layout.inventoryPanel().intersects(layout.lootPanel()));
 			assertFalse(layout.lootPanel().intersects(layout.detailPanel()));
-			assertTrue(layout.columns() >= 1 && layout.columns() <= 9);
+			assertTrue(layout.columns() >= 4 && layout.columns() <= 6);
 		}
 	}
 
@@ -67,7 +68,7 @@ class LootScreenLayoutTest {
 		assertTrue(maximum > 0.0D);
 		assertEquals(0.0D, layout.clampScroll(-50.0D, 200));
 		assertEquals(maximum, layout.clampScroll(maximum + 50.0D, 200));
-		assertEquals(LootScreenLayout.SLOT_SIZE, layout.lootSlotBounds(layout.columns(), 0).y() - layout.lootSlotBounds(0, 0).y());
+		assertEquals(LootScreenLayout.LOOT_CELL_SIZE, layout.lootSlotBounds(layout.columns(), 0).y() - layout.lootSlotBounds(0, 0).y());
 	}
 
 	private static void assertInside(Bounds outer, Bounds inner) {

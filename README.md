@@ -17,7 +17,7 @@ Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量
 
 - 阻止玩家通过碰撞自动吸取地面物品，不影响物品物理、寿命、漏斗或其他运输方式
 - 按 Vanilla 的 Item + Data Components 语义聚合附近相同掉落物；Stack Count 不参与分组身份
-- HUD 按 Loot Group 显示真实物品名称、图标和附近总数量，数量可以超过单个物品栈上限；普通探索时使用紧凑提示，按 F 后才展开完整选择与操作信息
+- HUD 使用深色 Vanilla+ Tooltip 面板显示当前 Loot Group 的真实物品名称、图标和附近总数量，并用额外组数提示保持画面简洁；按 F 后展开当前选择、数量、附魔与操作信息
 - 选中附魔物品时显示最多 5 条 Vanilla 本地化附魔详情，并支持附魔书的 Stored Enchantments
 - 附近有物品时按 F 进入拾取模式，并屏蔽本次原版副手交换
 - 拾取模式中使用滚轮按 Group 循环选择，不改变快捷栏槽位
@@ -37,7 +37,7 @@ Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量
 - Hidden 只影响 Tactical Pickup 的客户端显示与选择，不删除 ItemEntity，也不干涉水流、漏斗、五分钟寿命或其他模组系统
 - 安装 Mod Menu 后可从 `Mods → Tactical Pickup → Config` 打开同一过滤管理界面；不安装时 O 入口及全部功能仍可用
 - 按 H 主动打开不会暂停游戏的紧凑型战利品界面；默认尺寸为 420×240 GUI 逻辑像素，F 仍是默认快速拾取方式
-- 玩家主背包位于左侧并按 Vanilla 的 3×9 主背包 + 1×9 Hotbar 排列；附近战利品位于右侧并使用可滚动的 18px Slot Grid
+- 玩家主背包位于左侧并按 Vanilla 的 3×9 主背包 + 1×9 Hotbar 排列；附近战利品位于右侧并使用响应式 4–6 列可滚动深色 Slot Grid，底部为全宽详情与数量操作区
 - 单击 Loot Slot 只会选中并显示总量、过滤状态与最多 5 条附魔；Vanilla Item Tooltip 继续提供完整 Components、耐久、药水和模组物品信息
 - Shift + 鼠标右键 Loot Slot 会通过现有安全拾取协议快速拾取整个 Group；普通右键不会触发拾取
 - 按住 Loot Slot 移动超过 5 GUI 像素并松到某个具体背包格，只尝试该格；不兼容、已满或落在槽外时取消，不自动换位
