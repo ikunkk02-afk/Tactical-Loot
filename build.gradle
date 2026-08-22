@@ -42,7 +42,16 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	modImplementation "me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}"
 	modCompileOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
-	modLocalRuntime "com.terraformersmc:modmenu:${project.mod_menu_version}"
+	if (!project.hasProperty("withoutModMenu")) {
+		modLocalRuntime "com.terraformersmc:modmenu:${project.mod_menu_version}"
+	}
+
+	testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.test {
+	useJUnitPlatform()
 }
 
 processResources {

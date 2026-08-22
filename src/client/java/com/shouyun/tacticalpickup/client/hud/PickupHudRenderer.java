@@ -1,6 +1,9 @@
 package com.shouyun.tacticalpickup.client.hud;
 
 import com.shouyun.tacticalpickup.client.pickup.ClientPickupManager;
+import com.shouyun.tacticalpickup.client.input.ClientKeyMappings;
+import com.shouyun.tacticalpickup.filter.ItemFilterState;
+import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.pickup.LootGroup;
 import com.shouyun.tacticalpickup.pickup.PickupConstants;
 import java.util.ArrayList;
@@ -80,15 +83,18 @@ public final class PickupHudRenderer {
 		for (int offset = 0; offset < visibleCount; offset++) {
 			int entryIndex = firstVisible + offset;
 			LootGroup group = groups.get(entryIndex);
-			if (pickupMode && entryIndex == manager.selectedIndex()) {
+			boolean selected = pickupMode && entryIndex == manager.selectedIndex();
+			ItemFilterState filterState = manager.filterManager().getState(LootGroupFilter.itemId(group));
+			if (selected) {
 				graphics.fill(x + 2, cursorY - 1, x + panelWidth - 2, cursorY + ROW_HEIGHT - 1, SELECTED_COLOR);
 			}
 
 			graphics.renderItem(group.displayStack(), x + PANEL_PADDING, cursorY);
-			String label = group.displayStack().getHoverName().getString() + " ×" + group.totalCount();
+			String label = groupLabel(group, filterState);
 			int availableTextWidth = panelWidth - PANEL_PADDING * 3 - ITEM_SIZE;
 			String clippedLabel = font.plainSubstrByWidth(label, availableTextWidth);
-			graphics.drawString(font, clippedLabel, x + PANEL_PADDING * 2 + ITEM_SIZE, cursorY + 4, TEXT_COLOR, true);
+			int rowTextColor = filterState == ItemFilterState.LOW_PRIORITY && !selected ? MUTED_TEXT_COLOR : TEXT_COLOR;
+			graphics.drawString(font, clippedLabel, x + PANEL_PADDING * 2 + ITEM_SIZE, cursorY + 4, rowTextColor, true);
 			cursorY += ROW_HEIGHT;
 		}
 
@@ -137,6 +143,16 @@ public final class PickupHudRenderer {
 			cursorY = drawInstruction(graphics, font, "tactical_pickup.hud.scroll", x, cursorY);
 			cursorY = drawInstruction(graphics, font, "tactical_pickup.hud.adjust_amount", x, cursorY);
 			cursorY = drawInstruction(graphics, font, "tactical_pickup.hud.adjust_amount_fast", x, cursorY);
+			cursorY = drawInstructionComponent(
+				graphics,
+				font,
+				Component.translatable(
+					"tactical_pickup.hud.cycle_filter",
+					ClientKeyMappings.CYCLE_FILTER.getTranslatedKeyMessage()
+				),
+				x,
+				cursorY
+			);
 			cursorY = drawInstruction(graphics, font, "tactical_pickup.hud.pickup", x, cursorY);
 			drawInstruction(graphics, font, "tactical_pickup.hud.exit", x, cursorY);
 		} else {
@@ -211,7 +227,7 @@ public final class PickupHudRenderer {
 			}
 
 			height += lineStep + SECTION_GAP;
-			height += 5 * lineStep;
+			height += 6 * lineStep;
 		} else {
 			height += lineStep;
 		}
@@ -234,7 +250,8 @@ public final class PickupHudRenderer {
 
 		for (int offset = 0; offset < visibleCount; offset++) {
 			LootGroup group = groups.get(firstVisible + offset);
-			String label = group.displayStack().getHoverName().getString() + " ×" + group.totalCount();
+			ItemFilterState state = ClientPickupManager.getInstance().filterManager().getState(LootGroupFilter.itemId(group));
+			String label = groupLabel(group, state);
 			width = Math.max(width, ITEM_SIZE + PANEL_PADDING + font.width(label));
 		}
 
@@ -254,6 +271,10 @@ public final class PickupHudRenderer {
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.scroll")));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.adjust_amount")));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.adjust_amount_fast")));
+		width = Math.max(width, font.width(Component.translatable(
+			"tactical_pickup.hud.cycle_filter",
+			ClientKeyMappings.CYCLE_FILTER.getTranslatedKeyMessage()
+		)));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.pickup")));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.exit")));
 		width = Math.max(width, font.width(Component.translatable("tactical_pickup.hud.enter")));
@@ -278,7 +299,18 @@ public final class PickupHudRenderer {
 	}
 
 	private static int drawInstruction(GuiGraphics graphics, Font font, String translationKey, int x, int y) {
-		graphics.drawString(font, Component.translatable(translationKey), x + PANEL_PADDING, y, MUTED_TEXT_COLOR, true);
+		return drawInstructionComponent(graphics, font, Component.translatable(translationKey), x, y);
+	}
+
+	private static int drawInstructionComponent(GuiGraphics graphics, Font font, Component component, int x, int y) {
+		graphics.drawString(font, component, x + PANEL_PADDING, y, MUTED_TEXT_COLOR, true);
 		return y + font.lineHeight + 1;
+	}
+
+	private static String groupLabel(LootGroup group, ItemFilterState state) {
+		String label = group.displayStack().getHoverName().getString() + " ×" + group.totalCount();
+		return state == ItemFilterState.LOW_PRIORITY
+			? label + "  " + Component.translatable("tactical_pickup.hud.low_priority").getString()
+			: label;
 	}
 }

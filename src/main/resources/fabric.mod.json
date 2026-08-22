@@ -21,6 +21,9 @@
 		],
 		"client": [
 			"com.shouyun.tacticalpickup.client.TacticalPickupClient"
+		],
+		"modmenu": [
+			"com.shouyun.tacticalpickup.client.filter.TacticalPickupModMenuIntegration"
 		]
 	},
 	"mixins": [

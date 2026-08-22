@@ -11,7 +11,7 @@ Tactical Pickup 是一个面向 Minecraft 1.21.1 Fabric 的早期开发模组，
 - Cloth Config API 15.0.140
 - Mod Menu 11.0.4（可选；未安装时不影响模组运行）
 
-Fabric API 和 Cloth Config API 是运行必需依赖。当前阶段已经接入 Cloth Config，但尚未提供完整配置界面。
+Fabric API 和 Cloth Config API 是运行必需依赖。过滤管理使用轻量自定义客户端界面；Cloth Config 保留给后续一般设置。Mod Menu 只提供可选入口，不是必装前置。
 
 ## 当前功能
 
@@ -28,6 +28,14 @@ Fabric API 和 Cloth Config API 是运行必需依赖。当前阶段已经接入
 - 指定数量可以跨多个 ItemEntity；背包容量不足时只扣除实际插入数量，继续保证物品守恒
 - 按 ESC 退出拾取模式；再次按 ESC 恢复原版暂停行为
 - 受到实际伤害、死亡、离开范围、切换维度或断开连接时退出并清理状态
+- 所有物品默认是 Normal；拾取模式中按 X 可按 Normal → Low Priority → Hidden → Normal 循环当前物品的过滤状态
+- Low Priority 仍显示、可选择、可调整数量并正常拾取，但始终排在所有 Normal Group 后，并在 HUD 中使用较弱提示
+- Hidden 完全不进入 Tactical Pickup HUD、滚轮选择和 F 上下文；若附近只有 Hidden 物品，F 保持原版主副手交换
+- 过滤身份是 Item Registry ID，而不是 LootGroupKey；普通、附魔和不同耐久度的同种物品共享过滤状态
+- 按 O 打开过滤管理；空搜索管理已有规则，输入名称或 Item ID 可查找已安装物品并直接降低优先级或屏蔽，也可恢复 Hidden 项和确认后全部恢复 Normal
+- 过滤规则持久化在 `config/tactical_pickup_filters.json`，跨世界和服务器沿用；移除模组后其 Item ID 规则仍会保留
+- Hidden 只影响 Tactical Pickup 的客户端显示与选择，不删除 ItemEntity，也不干涉水流、漏斗、五分钟寿命或其他模组系统
+- 安装 Mod Menu 后可从 `Mods → Tactical Pickup → Config` 打开同一过滤管理界面；不安装时 O 入口及全部功能仍可用
 
 ## 构建
 
@@ -44,7 +52,7 @@ gradlew.bat runServer --args="nogui"
 
 ## 开发状态
 
-**当前仍处于早期开发阶段。** 当前版本尚不包含过滤器、大型战利品界面或 Forge/NeoForge 支持。
+**当前仍处于早期开发阶段。** 当前版本尚不包含大型战利品界面或 Forge/NeoForge 支持。
 
 ## License
 

@@ -1,5 +1,8 @@
 package com.shouyun.tacticalpickup.client.pickup;
 
+import com.shouyun.tacticalpickup.filter.ItemFilterManager;
+import com.shouyun.tacticalpickup.filter.ItemFilterState;
+import com.shouyun.tacticalpickup.filter.LootGroupFilter;
 import com.shouyun.tacticalpickup.network.PickupRequestPayload;
 import com.shouyun.tacticalpickup.pickup.LootGroup;
 import com.shouyun.tacticalpickup.pickup.LootGroupAggregator;
@@ -12,7 +15,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
@@ -32,12 +37,18 @@ public final class ClientPickupManager {
 	private int selectedAmount = 1;
 	private double accumulatedScroll;
 	private ScrollMode scrollMode = ScrollMode.NONE;
+	private ItemFilterManager filterManager;
 
 	private ClientPickupManager() {
 	}
 
 	public static ClientPickupManager getInstance() {
 		return INSTANCE;
+	}
+
+	public void initialize(ItemFilterManager filterManager) {
+		this.filterManager = filterManager;
+		forceScan = true;
 	}
 
 	public void tick(Minecraft client) {
@@ -147,6 +158,36 @@ public final class ClientPickupManager {
 		resetScroll();
 	}
 
+	public boolean cycleSelectedFilter(Minecraft client) {
+		if (!pickupMode || !isNormalGameplay(client) || filterManager == null) {
+			return false;
+		}
+
+		LootGroup selected = selectedGroup();
+		if (selected == null) {
+			return false;
+		}
+
+		ResourceLocation itemId = LootGroupFilter.itemId(selected);
+		ItemFilterState nextState = filterManager.cycleState(itemId);
+		client.player.displayClientMessage(
+			Component.translatable(
+				"tactical_pickup.filter.changed",
+				selected.displayStack().getHoverName(),
+				Component.translatable(nextState.translationKey())
+			),
+			true
+		);
+		scan(client);
+		ticksUntilScan = PickupConstants.CLIENT_SCAN_INTERVAL_TICKS - 1;
+		forceScan = false;
+		return true;
+	}
+
+	public void requestScan() {
+		forceScan = true;
+	}
+
 	public void reset() {
 		groups = List.of();
 		observedPlayer = null;
@@ -172,6 +213,14 @@ public final class ClientPickupManager {
 
 	public LootGroup selectedGroup() {
 		return selectedIndex >= 0 && selectedIndex < groups.size() ? groups.get(selectedIndex) : null;
+	}
+
+	public ItemFilterManager filterManager() {
+		if (filterManager == null) {
+			throw new IllegalStateException("Client pickup manager has not been initialized");
+		}
+
+		return filterManager;
 	}
 
 	public boolean pickupAll() {
@@ -219,7 +268,10 @@ public final class ClientPickupManager {
 				client.player.distanceToSqr(itemEntity)
 			))
 			.toList();
-		groups = LootGroupAggregator.group(members);
+		List<LootGroup> aggregatedGroups = LootGroupAggregator.group(members);
+		groups = filterManager == null
+			? aggregatedGroups
+			: LootGroupFilter.apply(aggregatedGroups, filterManager::getState);
 
 		if (groups.isEmpty()) {
 			selectedIndex = 0;
